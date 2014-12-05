@@ -76,7 +76,7 @@ class AutobuilderConfig(object):
                 for kbranch in d.kernelbranches:
                     cbname = d.kernelreponame + '-' + kbranch
                     kern_filter = ChangeFilter(project=repo.project,
-                                               branch=kbranch,
+                                               branch=d.kernelbranches[kbranch],
                                                codebase=cbname)
                     s.append(SingleBranchScheduler(name=d.name + '-' + cbname,
                                                    change_filter=kern_filter,
