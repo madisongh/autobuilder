@@ -61,6 +61,7 @@ def make_autoconf(props):
     result.append('DL_DIR = "%s"' % props.getProperty('downloads_dir'))
     if props.getProperty('dl_mirrorvar') != "":
         result.append('%s = "file:///dummy/nonexistent/path"' % props.getProperty('dl_mirrorvar'))
+        result.append('BB_GENERATE_MIRROR_TARBALLS = "1"\n')
     result.append(props.getProperty('sstate_mirrorvar') % props.getProperty('sstate_mirror'))
     result.append('BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"')
     # TODO: insert SRCREV_ settings for kernel
