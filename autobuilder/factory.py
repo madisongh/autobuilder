@@ -64,6 +64,9 @@ def make_autoconf(props):
         result.append('BB_GENERATE_MIRROR_TARBALLS = "1"\n')
     result.append(props.getProperty('sstate_mirrorvar') % props.getProperty('sstate_mirror'))
     result.append('BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"')
+    extraconfig = abconfig.buildslave_extraconfig(props)
+    if len(extraconfig) > 0:
+        result.append('\n' + extraconfig)
     # TODO: insert SRCREV_ settings for kernel
     return '\n'.join(result) + '\n'
 
@@ -205,6 +208,7 @@ class DistroImage(BuildFactory):
                 tgtenv['MACHINE'] = tgt
                 image = sdktargets[tgt]
                 if image != 'buildtools-tarball':
+                    # noinspection PyAugmentAssignment
                     image = '-c populate_sdk ' + image
                 if sdkmachines is None:
                     self.addStep(ShellCommand(command=['bash', '-c', 'bitbake %s' % image],

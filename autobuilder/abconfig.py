@@ -24,6 +24,13 @@ class AutobuilderConfig(object):
         self.name = name
         self._buildslaves = buildslaves
         self.ostypes = self._buildslaves.keys()
+        self.buildslave_conftext = {}
+        for otype in self._buildslaves:
+            for bstuple in self._buildslaves[otype]:
+                if len(bstuple) > 2:
+                    self.buildslave_conftext[bstuple[0]] = bstuple[2]
+                else:
+                    self.buildslave_conftext[bstuple[0]] = ''
         self.controllers = controllers
         self.repos = repos
         self.distros = distros
@@ -138,7 +145,6 @@ class AutobuilderConfig(object):
                       for otype in d.host_oses]
         return b
 
-
 @properties.renderer
 def kernel_srcrev(props):
     karchs = props.getProperty('kernel_archs').split() or []
@@ -154,3 +160,8 @@ def kernel_srcrev(props):
         result[karch] = val
     return result
 
+
+def buildslave_extraconfig(props):
+    buildslave_name = props.getProperty('slavename')
+    abcfg = ABCFG_DICT[props.getProperty('autobuilder')]
+    return abcfg.buildslave_conftext[buildslave_name]
