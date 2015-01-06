@@ -83,3 +83,10 @@ def sdk_root(props):
 @properties.renderer
 def sdk_use_current(props):
     return '--update-current' if _get_sdkinfo(props).current_symlink else ''
+
+@properties.renderer
+def sdk_stamp(props):
+    if _get_sdkinfo(props).production_release:
+        return '--no-stamp'
+    else:
+        return '--date-stamp=' + props.getProperty('datestamp')

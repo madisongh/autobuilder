@@ -253,10 +253,12 @@ class DistroImage(BuildFactory):
                                   descriptionDone=['Updated', 'shared-state', 'mirror']))
         if sdktargets is not None:
             for tgt in sdktargets:
-                self.addStep(ShellCommand(command=['install-sdk', abdistro.sdk_root,
-                                                   Interpolate('--date-stamp=%(prop:datestamp)s'),
-                                                   '--machine=%s' % tgt, '--image=%s' % sdktargets[tgt],
-                                                   abdistro.sdk_use_current], workdir=Property('BUILDDIR'),
+                cmd = ['install-sdk']
+                if abdistro.sdk_root:
+                    cmd.append(abdistro.sdk_root)
+                cmd += [abdistro.sdk_stamp, '--machine=%s' % tgt, '--image=%s' % sdktargets[tgt],
+                        abdistro.sdk_use_current]
+                self.addStep(ShellCommand(command=cmd, workdir=Property('BUILDDIR'),
                                           name='InstallSDKs', timeout=None,
                                           doStepIf=lambda step: abdistro.install_sdk(step.build.getProperties()),
                                           hideStepIf=lambda results, step: results == bbres.SKIPPED,
