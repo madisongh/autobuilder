@@ -68,7 +68,7 @@ def build_sdk(props):
 
 
 def install_sdk(props):
-    return _get_sdkinfo(props).install_sdk
+    return props.getProperty('primary_hostos') and _get_sdkinfo(props).install_sdk
 
 
 def is_release_build(props):
