@@ -79,13 +79,11 @@ class AutobuilderConfig(object):
                                            createAbsoluteSourceStamps=True,
                                            builderNames=[d.name]))
             if d.kernelreponame is not None:
-                repo = self.repos[d.kernelreponame]
                 for kbranch in d.kernelbranches:
-                    cbname = d.kernelreponame + '-' + kbranch
-                    kern_filter = ChangeFilter(project=repo.project,
+                    kern_filter = ChangeFilter(project=self.repos[d.kernelreponame].project,
                                                branch=d.kernelbranches[kbranch],
-                                               codebase=cbname)
-                    s.append(SingleBranchScheduler(name=d.name + '-' + cbname,
+                                               codebase=d.kernelreponame)
+                    s.append(SingleBranchScheduler(name=d.name + '-kernel-' + kbranch,
                                                    change_filter=kern_filter,
                                                    treeStableTimer=d.repotimer,
                                                    codebases=d.codebases(self.repos),
@@ -154,7 +152,7 @@ def kernel_srcrev(props):
     kbase = abcfg.distrodict[props.getProperty('distro')].kernelreponame
     for karch in karchs:
         try:
-            val = revisions[kbase + '-' + karch]
+            val = revisions[kbase]
         except KeyError:
             val = '${AUTOREV}'
         result[karch] = val

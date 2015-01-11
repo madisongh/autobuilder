@@ -46,9 +46,7 @@ class Distro(object):
     def codebases(self, repos):
         cbdict = {self.reponame: {'repository': repos[self.reponame].uri}}
         if self.kernelreponame:
-            for karch in self.kernelbranches:
-                k = self.kernelreponame + '-' + karch
-                cbdict[k] = {'repository': repos[self.kernelreponame].uri}
+            cbdict[self.kernelreponame] = {'repository': repos[self.kernelreponame].uri}
         return cbdict
 
     def set_host_oses(self, default_oses):

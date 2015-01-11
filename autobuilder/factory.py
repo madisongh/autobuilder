@@ -122,7 +122,7 @@ class DistroBuild(BuildFactory):
                 self.addStep(Git(repourl=krepo.uri,
                                  branch=kbranches[karch],
                                  mode='full', method='clobber',
-                                 codebase=distro.kernelreponame + '-' + karch,
+                                 codebase=distro.kernelreponame,
                                  shallow=True,
                                  workdir=os.path.join('sources', distro.name,
                                                       distro.kernelreponame,
