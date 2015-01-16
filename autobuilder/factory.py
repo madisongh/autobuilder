@@ -55,9 +55,9 @@ def build_output_path(props):
 @properties.renderer
 def make_autoconf(props):
     result = ['INHERIT += "rm_work buildhistory"',
-              'DISTRO_BUILDNUM = "-%s"' % build_tag(props)]
+              props.getProperty('buildnum_template') % build_tag(props)]
     if abdistro.is_release_build(props):
-        result.append('DISTRO_BUILDNAME = ""')
+        result.append('%s = ""' % props.getProperty('release_buildname_variable'))
     result.append('DL_DIR = "%s"' % props.getProperty('downloads_dir'))
     if props.getProperty('dl_mirrorvar') != "":
         result.append('%s = "file:///dummy/nonexistent/path"' % props.getProperty('dl_mirrorvar'))

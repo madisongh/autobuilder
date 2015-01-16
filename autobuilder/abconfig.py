@@ -123,7 +123,9 @@ class AutobuilderConfig(object):
                      'setup_script': d.setup_script,
                      'artifacts': ' '.join(d.artifacts),
                      'autobuilder': self.name,
-                     'distro': d.name}
+                     'distro': d.name,
+                     'buildnum_template': d.buildnum_template,
+                     'release_buildname_variable': d.release_buildname_variable}
             b.append(BuilderConfig(name=d.name,
                                    slavenames=[bs[0] for bs in self.controllers],
                                    properties=props.copy(),
