@@ -2,6 +2,7 @@
 Autobuilder configuration class.
 """
 from buildbot.buildslave import BuildSlave
+from buildbot.buildslave.ec2 import EC2LatentBuildSlave
 from buildbot.changes.gitpoller import GitPoller
 from buildbot.changes.filter import ChangeFilter
 from buildbot.schedulers.basic import SingleBranchScheduler
@@ -18,11 +19,12 @@ ABCFG_DICT = {}
 
 class AutobuilderConfig(object):
     def __init__(self, name, buildslaves, controllers,
-                 repos, distros):
+                 repos, distros, ec2slaves=None):
         if name in ABCFG_DICT:
             raise RuntimeError('Autobuilder config %s already exists' % name)
         self.name = name
         self._buildslaves = buildslaves
+        self.ec2slaves = ec2slaves or {}
         self.ostypes = self._buildslaves.keys()
         self.buildslave_conftext = {}
         for otype in self._buildslaves:
@@ -50,7 +52,12 @@ class AutobuilderConfig(object):
         slaves = [BuildSlave(bs[0], bs[1], max_builds=1)
                   for ostype in self.ostypes
                   for bs in self._buildslaves[ostype]]
-        return controllers + slaves
+        ec2slaves = [EC2LatentBuildSlave(bs[0], bs[1], max_builds=1,
+                                         instance_type=bs[2], ami=bs[3])
+                     for ostype in self.ostypes
+                     for bs in self.ec2slaves[ostype]]
+        # noinspection PyTypeChecker
+        return controllers + slaves + ec2slaves
 
     @property
     def change_sources(self):
