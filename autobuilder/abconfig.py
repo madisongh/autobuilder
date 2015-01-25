@@ -37,6 +37,12 @@ class AutobuilderConfig(object):
                     self.buildslave_conftext[bstuple[0]] = bstuple[2]
                 else:
                     self.buildslave_conftext[bstuple[0]] = ''
+        for otype in self.ec2slaves:
+            for bstuple in self.ec2slaves[otype]:
+                if len(bstuple) > 5:
+                    self.buildslave_conftext[bstuple[0]] = bstuple[5]
+                else:
+                    self.buildslave_conftext[bstuple[0]] = ''
         self.controllers = controllers
         self.repos = repos
         self.distros = distros
@@ -60,7 +66,8 @@ class AutobuilderConfig(object):
                                          instance_type=bs[2], ami=bs[3],
                                          keypair_name=self.ec2keypair,
                                          security_name=self.ec2secgroup,
-                                         subnet_id=self.ec2subnet)
+                                         subnet_id=self.ec2subnet,
+                                         elastic_ip=bs[4])
                      for ostype in self.ostypes
                      for bs in self.ec2slaves[ostype]]
         # noinspection PyTypeChecker
