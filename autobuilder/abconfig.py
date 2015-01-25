@@ -64,6 +64,17 @@ class AutobuilderConfig(object):
         # noinspection PyTypeChecker
         return controllers + slaves + ec2slaves
 
+    def noncontrollers(self, ostype):
+        slaves = [BuildSlave(bs[0], bs[1], max_builds=1)
+                  for bs in self._buildslaves[ostype]]
+        ec2slaves = [EC2LatentBuildSlave(bs[0], bs[1], max_builds=1,
+                                         instance_type=bs[2], ami=bs[3],
+                                         keypair_name=self.ec2keypair,
+                                         security_name=self.ec2secgroup)
+                     for bs in self.ec2slaves[ostype]]
+        # noinspection PyTypeChecker
+        return slaves + ec2slaves
+
     @property
     def change_sources(self):
         return [GitPoller(repourl=self.repos[r].uri,
@@ -145,7 +156,7 @@ class AutobuilderConfig(object):
             repo = self.repos[d.reponame]
             for imgset in d.targets:
                 b += [BuilderConfig(name=d.name + '-' + imgset.name + '-' + otype,
-                                    slavenames=[bs[0] for bs in self._buildslaves[otype]],
+                                    slavenames=[bs[0] for bs in self.noncontrollers(otype)],
                                     properties=props.copy(),
                                     factory=factory.DistroImage(repourl=repo.uri,
                                                                 submodules=repo.submodules,
