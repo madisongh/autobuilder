@@ -55,6 +55,12 @@ class AutobuilderConfig(object):
     def codebase_generator(self, change_dict):
         return self.codebasemap[change_dict['repository']]
 
+    def project_from_repo(self, repo_url):
+        try:
+            return self.repos[self.codebasemap[repo_url]].project
+        except KeyError:
+            return None
+
     @property
     def buildslaves(self):
         controllers = [BuildSlave(bs[0], bs[1], max_builds=1)
@@ -187,3 +193,10 @@ def buildslave_extraconfig(props):
     buildslave_name = props.getProperty('slavename')
     abcfg = ABCFG_DICT[props.getProperty('autobuilder')]
     return abcfg.buildslave_conftext[buildslave_name]
+
+def get_project_for_url(repo_url, default_if_not_found=None):
+    for abcfg in ABCFG_DICT:
+        proj = ABCFG_DICT[abcfg].project_from_url(repo_url)
+        if proj is not None:
+            return proj
+    return default_if_not_found
