@@ -55,7 +55,7 @@ class AutobuilderConfig(object):
     def codebase_generator(self, change_dict):
         return self.codebasemap[change_dict['repository']]
 
-    def project_from_repo(self, repo_url):
+    def project_from_url(self, repo_url):
         try:
             return self.repos[self.codebasemap[repo_url]].project
         except KeyError:
