@@ -2,4 +2,4 @@
 *.pyo
 *~
 build/
-.idea/workspace.xml
+.idea/

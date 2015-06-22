@@ -2,7 +2,7 @@
 Autobuilder configuration class.
 """
 from buildbot.buildslave import BuildSlave
-from buildbot.buildslave.ec2 import EC2LatentBuildSlave
+from vpcslave import VPCLatentBuildSlave
 from buildbot.changes.gitpoller import GitPoller
 from buildbot.changes.filter import ChangeFilter
 from buildbot.schedulers.basic import SingleBranchScheduler
@@ -68,7 +68,7 @@ class AutobuilderConfig(object):
         slaves = [BuildSlave(bs[0], bs[1], max_builds=1)
                   for ostype in self.ostypes
                   for bs in self._buildslaves[ostype]]
-        ec2slaves = [EC2LatentBuildSlave(bs[0], bs[1], max_builds=1,
+        ec2slaves = [VPCLatentBuildSlave(bs[0], bs[1], max_builds=1,
                                          instance_type=bs[2], ami=bs[3],
                                          keypair_name=self.ec2keypair,
                                          security_name=self.ec2secgroup,
