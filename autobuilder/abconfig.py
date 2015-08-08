@@ -73,6 +73,7 @@ class AutobuilderConfig(object):
                                          keypair_name=self.ec2keypair,
                                          security_name=self.ec2secgroup,
                                          subnet_id=self.ec2subnet,
+                                         user_data='SLAVENAME="%s"\nSLAVESECRET="%s"\n' % (bs[0], bs[1]),
                                          elastic_ip=bs[4])
                      for ostype in self.ostypes
                      for bs in self.ec2slaves[ostype]]
