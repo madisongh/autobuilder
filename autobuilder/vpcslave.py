@@ -155,10 +155,19 @@ class VPCLatentBuildSlave(EC2LatentBuildSlave):
         # get the image
         if self.ami is not None:
             self.image = self.conn.get_image(self.ami)
+            self.block_device_mapping = self.image.block_device_mapping
         else:
             # verify we have access to at least one acceptable image
             discard = self.get_image()
             assert discard
+            self.block_device_mapping = None
+
+        # The API doesn't allow us to specify a value (even False) for 'encrypted'
+        # if there is a snapshot ID.
+        if self.block_device_mapping:
+            for bdm in self.block_device_mapping:
+                if self.block_device_mapping[bdm].snapshot_id is not None:
+                    self.block_device_mapping[bdm].encrypted = None
 
         # allocate a dynamic elastic IP, if requested
         # otherwise, if an elastic IP is specified, use it
@@ -193,6 +202,7 @@ class VPCLatentBuildSlave(EC2LatentBuildSlave):
                                               instance_type=self.instance_type,
                                               user_data=self.user_data,
                                               placement=self.placement,
+                                              block_device_map=self.block_device_mapping,
                                               network_interfaces=netifcoll)
         self.instance = reservation.instances[0]
         instance_id, image_id, start_time = self._wait_for_instance(
