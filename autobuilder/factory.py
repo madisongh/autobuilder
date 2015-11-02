@@ -229,6 +229,13 @@ class DistroImage(BuildFactory):
                                                   hideStepIf=lambda results, step: results == bbres.SKIPPED,
                                                   description=['Building', sdkmach, 'SDK', image, '(' + tgt + ')'],
                                                   descriptionDone=['Built', sdkmach, 'SDK', image, '(' + tgt + ')']))
+
+        self.addStep(ShellCommand(command=['autorev-report', 'buildhistory'],
+                                  workdir=Property('BUILDDIR'),
+                                  name='AutorevReport', timeout=None,
+                                  description=['Generating', 'AUTOREV', 'report'],
+                                  descriptionDone=['Generated', 'AUTOREV', 'report']))
+
         # Copy artifacts, stamps, buildhistory to binary repo
 
         self.addStep(ShellCommand(command=copy_artifacts_cmdseq, workdir=Property('BUILDDIR'),
