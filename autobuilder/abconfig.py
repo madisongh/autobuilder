@@ -20,7 +20,7 @@ ABCFG_DICT = {}
 class AutobuilderConfig(object):
     def __init__(self, name, buildslaves, controllers,
                  repos, distros, ec2slaves=None, ec2keypair=None,
-                 ec2secgroup=None, ec2subnet=None):
+                 ec2secgroup=None, ec2subnet=None, ec2region=None):
         if name in ABCFG_DICT:
             raise RuntimeError('Autobuilder config %s already exists' % name)
         self.name = name
@@ -29,6 +29,7 @@ class AutobuilderConfig(object):
         self.ec2keypair = ec2keypair
         self.ec2secgroup = ec2secgroup
         self.ec2subnet = ec2subnet
+        self.ec2region = ec2region
         self.ostypes = self._buildslaves.keys()
         self.buildslave_conftext = {}
         for otype in self._buildslaves:
@@ -72,6 +73,7 @@ class AutobuilderConfig(object):
                                          instance_type=bs[2], ami=bs[3],
                                          keypair_name=self.ec2keypair,
                                          security_name=self.ec2secgroup,
+                                         region=self.ec2region,
                                          subnet_id=self.ec2subnet,
                                          user_data='SLAVENAME="%s"\nSLAVESECRET="%s"\n' % (bs[0], bs[1]),
                                          elastic_ip=bs[4])
