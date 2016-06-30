@@ -2,7 +2,15 @@ from buildbot.status.web.hooks.github import GitHubEventHandler
 from twisted.python import log
 import abconfig
 
+def codebasemap(payload):
+    return abconfig.get_project_for_url(payload['repository']['url'])
+
 class AutobuilderGithubEventHandler(GitHubEventHandler):
+
+    def __init__(self, secret, strict codebase=None):
+        if codebase is None:
+            codebase = codebasemap
+        GitHubEventHandler.__init__(self, secret, strict, codebase)
 
     def handle_push(self, payload):
         # This field is unused:
