@@ -31,3 +31,5 @@ class AutobuilderEC2Slave(AutobuilderSlave):
         if self.ec2tags:
             if 'Name' not in self.ec2tags:
                 self.ec2tags['Name'] = self.name
+        else:
+            self.ec2tags = {'Name': self.name}

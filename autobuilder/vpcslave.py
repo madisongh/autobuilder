@@ -212,7 +212,6 @@ class VPCLatentBuildSlave(EC2LatentBuildSlave):
                     (self.__class__.__name__, self.slavename, e))
             raise interfaces.LatentBuildSlaveFailedToSubstantiate(None, TERMINATED)
 
-
         self.instance = reservation.instances[0]
         instance_id, image_id, start_time = self._wait_for_instance(
             reservation)
@@ -224,7 +223,6 @@ class VPCLatentBuildSlave(EC2LatentBuildSlave):
             log.msg('%s %s failed to start instance %s' %
                     (self.__class__.__name__, self.slavename, instance_id))
             raise interfaces.LatentBuildSlaveFailedToSubstantiate(instance_id, TERMINATED)
-
 
     def _stop_instance(self, instance, fast):
         if self.elastic_ip is not None and not self.dynamic_ip:
