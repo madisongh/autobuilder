@@ -25,18 +25,22 @@ class AutobuilderConfig(object):
         ostypes = set()
         self.buildslaves = []
         self.buildslave_cfgs = {}
-        bsnames = []
+        bsnames = {}
         controllernames = []
         if buildslaves:
             ostypes |= set(buildslaves.keys())
             for ostype in buildslaves:
+                if ostype not in bsnames.keys():
+                    bsnames[ostype] = []
                 for bs in buildslaves[ostype]:
                     self.buildslaves.append(BuildSlave(bs.name, bs.password, max_builds=1))
                     self.buildslave_cfgs[bs.name] = bs
-                    bsnames.append(bs.name)
+                    bsnames[ostype].append(bs.name)
         if ec2slaves:
             ostypes |= set(ec2slaves.keys())
             for ostype in ec2slaves:
+                if ostype not in bsnames.keys():
+                    bsnames[ostype] = []
                 for bs in ec2slaves[ostype]:
                     self.buildslaves.append(VPCLatentBuildSlave(bs.name, bs.password, max_builds=1,
                                                                 instance_type=bs.ec2params.instance_type,
@@ -50,7 +54,7 @@ class AutobuilderConfig(object):
                                                                 elastic_ip=bs.ec2params.elastic_ip,
                                                                 tags=bs.ec2tags))
                     self.buildslave_cfgs[bs.name] = bs
-                    bsnames.append(bs.name)
+                    bsnames[ostype].append(bs.name)
 
         for bstuple in controllers:
             self.buildslaves.append(BuildSlave(bstuple[0], bstuple[1], max_builds=1))
@@ -59,7 +63,9 @@ class AutobuilderConfig(object):
             controllernames.append(bstuple[0])
 
         self.ostypes = sorted(ostypes)
-        self.buildslave_names = sorted(bsnames)
+        self.buildslave_names = {}
+        for ostype in self.ostypes:
+            self.buildslave_names[ostype] = sorted(bsnames[ostype])
         self.controller_names = sorted(controllernames)
 
         self.repos = repos
