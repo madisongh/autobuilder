@@ -78,12 +78,17 @@ def is_release_build(props):
 
 @properties.renderer
 def sdk_root(props):
-    return '--install-root=%s' % _get_sdkinfo(props).sdk_root
+    root = _get_sdkinfo(props).sdk_root
+    if root:
+        return '--install-root=' + root
+    else:
+        return ''
 
 
 @properties.renderer
 def sdk_use_current(props):
     return '--update-current' if _get_sdkinfo(props).current_symlink else ''
+
 
 @properties.renderer
 def sdk_stamp(props):

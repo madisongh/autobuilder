@@ -2,49 +2,66 @@
 Autobuilder configuration class.
 """
 from buildbot.buildslave import BuildSlave
-from vpcslave import VPCLatentBuildSlave
-from buildbot.changes.gitpoller import GitPoller
 from buildbot.changes.filter import ChangeFilter
+from buildbot.changes.gitpoller import GitPoller
+from buildbot.config import BuilderConfig
+from buildbot.process import properties
 from buildbot.schedulers.basic import SingleBranchScheduler
 from buildbot.schedulers.forcesched import ForceScheduler, ChoiceStringParameter
 from buildbot.schedulers.triggerable import Triggerable
-from buildbot.process import properties
-from buildbot.config import BuilderConfig
 
 import factory
-
+from vpcslave import VPCLatentBuildSlave
 
 ABCFG_DICT = {}
 
 
 class AutobuilderConfig(object):
     def __init__(self, name, buildslaves, controllers,
-                 repos, distros, ec2slaves=None, ec2keypair=None,
-                 ec2secgroup=None, ec2subnet=None, ec2region=None):
+                 repos, distros, ec2slaves=None):
         if name in ABCFG_DICT:
             raise RuntimeError('Autobuilder config %s already exists' % name)
         self.name = name
-        self._buildslaves = buildslaves
-        self.ec2slaves = ec2slaves or {}
-        self.ec2keypair = ec2keypair
-        self.ec2secgroup = ec2secgroup
-        self.ec2subnet = ec2subnet
-        self.ec2region = ec2region
-        self.ostypes = self._buildslaves.keys()
-        self.buildslave_conftext = {}
-        for otype in self._buildslaves:
-            for bstuple in self._buildslaves[otype]:
-                if len(bstuple) > 2:
-                    self.buildslave_conftext[bstuple[0]] = bstuple[2]
-                else:
-                    self.buildslave_conftext[bstuple[0]] = ''
-        for otype in self.ec2slaves:
-            for bstuple in self.ec2slaves[otype]:
-                if len(bstuple) > 5:
-                    self.buildslave_conftext[bstuple[0]] = bstuple[5]
-                else:
-                    self.buildslave_conftext[bstuple[0]] = ''
-        self.controllers = controllers
+        ostypes = set()
+        self.buildslaves = []
+        self.buildslave_cfgs = {}
+        bsnames = []
+        controllernames = []
+        if buildslaves:
+            ostypes |= set(buildslaves.keys())
+            for ostype in buildslaves:
+                for bs in buildslaves[ostype]:
+                    self.buildslaves.append(BuildSlave(bs.name, bs.password, max_builds=1))
+                    self.buildslave_cfgs[bs.name] = bs
+                    bsnames.append(bs.name)
+        if ec2slaves:
+            ostypes |= set(ec2slaves.keys())
+            for ostype in ec2slaves:
+                for bs in ec2slaves[ostype]:
+                    self.buildslaves.append(VPCLatentBuildSlave(bs.name, bs.password, max_builds=1,
+                                                                instance_type=bs.ec2params.instance_type,
+                                                                ami=bs.ec2params.ami,
+                                                                keypair_name=bs.ec2params.keypair,
+                                                                security_name=bs.ec2params.secgroup,
+                                                                region=bs.ec2params.region,
+                                                                subnet_id=bs.ec2params.subnet,
+                                                                user_data='SLAVENAME="%s"\nSLAVESECRET="%s"\n' %
+                                                                          (bs.name, bs.password),
+                                                                elastic_ip=bs.ec2params.elastic_ip,
+                                                                tags=bs.ec2tags))
+                    self.buildslave_cfgs[bs.name] = bs
+                    bsnames.append(bs.name)
+
+        for bstuple in controllers:
+            self.buildslaves.append(BuildSlave(bstuple[0], bstuple[1], max_builds=1))
+            # controllers aren't normal build slaves
+            self.buildslave_cfgs[bstuple[0]] = None
+            controllernames.append(bstuple[0])
+
+        self.ostypes = sorted(ostypes)
+        self.buildslave_names = sorted(bsnames)
+        self.controller_names = sorted(controllernames)
+
         self.repos = repos
         self.distros = distros
         self.distrodict = {d.name: d for d in self.distros}
@@ -61,26 +78,6 @@ class AutobuilderConfig(object):
             return self.repos[self.codebasemap[repo_url]].project
         except KeyError:
             return None
-
-    @property
-    def buildslaves(self):
-        controllers = [BuildSlave(bs[0], bs[1], max_builds=1)
-                       for bs in self.controllers]
-        slaves = [BuildSlave(bs[0], bs[1], max_builds=1)
-                  for ostype in self.ostypes
-                  for bs in self._buildslaves[ostype]]
-        ec2slaves = [VPCLatentBuildSlave(bs[0], bs[1], max_builds=1,
-                                         instance_type=bs[2], ami=bs[3],
-                                         keypair_name=self.ec2keypair,
-                                         security_name=self.ec2secgroup,
-                                         region=self.ec2region,
-                                         subnet_id=self.ec2subnet,
-                                         user_data='SLAVENAME="%s"\nSLAVESECRET="%s"\n' % (bs[0], bs[1]),
-                                         elastic_ip=bs[4])
-                     for ostype in self.ostypes
-                     for bs in self.ec2slaves[ostype]]
-        # noinspection PyTypeChecker
-        return controllers + slaves + ec2slaves
 
     @property
     def change_sources(self):
@@ -157,14 +154,13 @@ class AutobuilderConfig(object):
                      'buildnum_template': d.buildnum_template,
                      'release_buildname_variable': d.release_buildname_variable}
             b.append(BuilderConfig(name=d.name,
-                                   slavenames=[bs[0] for bs in self.controllers],
+                                   slavenames=self.controller_names,
                                    properties=props.copy(),
                                    factory=factory.DistroBuild(d, self.repos)))
             repo = self.repos[d.reponame]
             for imgset in d.targets:
                 b += [BuilderConfig(name=d.name + '-' + imgset.name + '-' + otype,
-                                    slavenames=[bs[0] for bs in
-                                                self._buildslaves[otype] + self.ec2slaves[otype]],
+                                    slavenames=self.buildslave_names[otype],
                                     properties=props.copy(),
                                     factory=factory.DistroImage(repourl=repo.uri,
                                                                 submodules=repo.submodules,
@@ -175,6 +171,7 @@ class AutobuilderConfig(object):
                                                                 sdktargets=imgset.sdkimages))
                       for otype in d.host_oses]
         return b
+
 
 @properties.renderer
 def kernel_srcrev(props):
@@ -195,7 +192,11 @@ def kernel_srcrev(props):
 def buildslave_extraconfig(props):
     buildslave_name = props.getProperty('slavename')
     abcfg = ABCFG_DICT[props.getProperty('autobuilder')]
-    return abcfg.buildslave_conftext[buildslave_name]
+    bscfg = abcfg.buildslave_cfg[buildslave_name]
+    if bscfg:
+        return bscfg.conftext
+    return ''
+
 
 def get_project_for_url(repo_url, default_if_not_found=None):
     for abcfg in ABCFG_DICT:

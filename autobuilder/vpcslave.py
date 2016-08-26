@@ -12,6 +12,7 @@ from buildbot.buildslave.base import AbstractLatentBuildSlave
 from twisted.python import log
 
 
+# noinspection PyDefaultArgument
 class VPCLatentBuildSlave(EC2LatentBuildSlave):
 
     def __init__(self, name, password, instance_type, ami=None,
@@ -196,14 +197,22 @@ class VPCLatentBuildSlave(EC2LatentBuildSlave):
             group_names = [self.security_name]
             netifcoll = None
 
-        reservation = self.conn.run_instances(image.id,
-                                              key_name=self.keypair_name,
-                                              security_groups=group_names,
-                                              instance_type=self.instance_type,
-                                              user_data=self.user_data,
-                                              placement=self.placement,
-                                              block_device_map=self.block_device_mapping,
-                                              network_interfaces=netifcoll)
+        try:
+            reservation = self.conn.run_instances(image.id,
+                                                  key_name=self.keypair_name,
+                                                  security_groups=group_names,
+                                                  instance_type=self.instance_type,
+                                                  user_data=self.user_data,
+                                                  placement=self.placement,
+                                                  block_device_map=self.block_device_mapping,
+                                                  network_interfaces=netifcoll)
+        except:
+            log.msg('%s %s run_instance failed for %s (%s)' %
+                    (self.__class__.__name__, self.slavename,
+                     self.instance.id, self.instance.state))
+            raise interfaces.LatentBuildSlaveFailedToSubstantiate(
+                self.instance.id, self.instance.state)
+
         self.instance = reservation.instances[0]
         instance_id, image_id, start_time = self._wait_for_instance(
             reservation)
