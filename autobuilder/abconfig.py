@@ -198,7 +198,7 @@ def kernel_srcrev(props):
 def buildslave_extraconfig(props):
     buildslave_name = props.getProperty('slavename')
     abcfg = ABCFG_DICT[props.getProperty('autobuilder')]
-    bscfg = abcfg.buildslave_cfg[buildslave_name]
+    bscfg = abcfg.buildslave_cfgs[buildslave_name]
     if bscfg:
         return bscfg.conftext
     return ''
