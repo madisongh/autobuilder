@@ -173,6 +173,7 @@ class VPCLatentBuildSlave(EC2LatentBuildSlave):
         # allocate a dynamic elastic IP, if requested
         # otherwise, if an elastic IP is specified, use it
         self.dynamic_ip = False
+        self.elastic_ip = None
         if elastic_ip == 'dynamic':
             assert self.subnet
             self.dynamic_ip = True
