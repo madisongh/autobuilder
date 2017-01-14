@@ -16,7 +16,8 @@ class Distro(object):
                  sstate_mirrorvar='SSTATE_MIRRORS = "file://.* file://%s/PATH"',
                  kernelreponame=None, kernelbranches=None, dl_mirrorvar=None,
                  buildtypes=None, buildnum_template='DISTRO_BUILDNUM = "-%s"',
-                 release_buildname_variable='DISTRO_BUILDNAME'):
+                 release_buildname_variable='DISTRO_BUILDNAME',
+                 dl_mirror='file:///dummy/no/such/path'):
         self.name = name
         self.reponame = reponame
         self.branch = branch
@@ -34,6 +35,7 @@ class Distro(object):
         self.kernelreponame = kernelreponame
         self.kernelbranches = kernelbranches or {}
         self.dl_mirrorvar = dl_mirrorvar
+        self.dl_mirror = dl_mirror
         self.buildnum_template = buildnum_template
         self.release_buildname_variable = release_buildname_variable
         self.buildtypes = buildtypes

@@ -1,4 +1,4 @@
-# Copyright (c) 2014 by Matthew Madison
+# Copyright (c) 2014-2017 by Matthew Madison
 # Distributed under license.
 
 import re
@@ -17,7 +17,6 @@ from buildbot.steps.trigger import Trigger
 import buildbot.status.results as bbres
 import abconfig
 import distro as abdistro
-
 
 ENV_VARS = {'PATH': Property('PATH'),
             'BB_ENV_EXTRAWHITE': Property('BB_ENV_EXTRAWHITE'),
@@ -60,7 +59,7 @@ def make_autoconf(props):
         result.append('%s = ""' % props.getProperty('release_buildname_variable'))
     result.append('DL_DIR = "%s"' % props.getProperty('downloads_dir'))
     if props.getProperty('dl_mirrorvar') != "":
-        result.append('%s = "file:///dummy/nonexistent/path"' % props.getProperty('dl_mirrorvar'))
+        result.append('%s = "%s"' % (props.getProperty('dl_mirrorvar'), props.getProperty('dl_mirror')))
         result.append('BB_GENERATE_MIRROR_TARBALLS = "1"\n')
     result.append(props.getProperty('sstate_mirrorvar') % props.getProperty('sstate_mirror'))
     result.append('BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"')

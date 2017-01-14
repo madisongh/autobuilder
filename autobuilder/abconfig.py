@@ -148,6 +148,7 @@ class AutobuilderConfig(object):
             props = {'sstate_mirror': d.sstate_mirror,
                      'sstate_mirrorvar': d.sstate_mirrorvar,
                      'dl_mirrorvar': d.dl_mirrorvar or "",
+                     'dl_mirror': d.dl_mirror,
                      'artifacts_path': d.artifacts_path,
                      'downloads_dir': d.dl_dir,
                      'project': self.repos[d.reponame].project,
