@@ -7,5 +7,5 @@ setup(
     license='MIT',
     author='Matt Madison',
     author_email='matt@madison.systems',
-    install_requires=['buildbot', 'boto']
+    install_requires=['buildbot', 'boto3']
 )
