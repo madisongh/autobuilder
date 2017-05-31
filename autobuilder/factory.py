@@ -7,6 +7,7 @@ import time
 
 from buildbot.plugins import steps, util
 from buildbot.process.factory import BuildFactory
+import buildbot.status.builder as bbres
 from autobuilder import settings
 
 ENV_VARS = {'PATH': util.Property('PATH'),
