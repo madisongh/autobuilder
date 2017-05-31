@@ -257,8 +257,8 @@ class DistroImage(BuildFactory):
 
         self.addStep(steps.ShellCommand(command=copy_artifacts_cmdseq, workdir=util.Property('BUILDDIR'),
                                         name='CopyArtifacts', timeout=None,
-                                        doStepIf=lambda step: (step.build.getutil.Property('save_artifacts') and
-                                                               step.build.getutil.Property('artifacts') != ''),
+                                        doStepIf=lambda step: (step.build.getProperty('save_artifacts') and
+                                                               step.build.getProperty('artifacts') != ''),
                                         hideStepIf=lambda results, step: results == bbres.SKIPPED,
                                         description=['Copying', 'artifacts', 'to', 'binary', 'repo'],
                                         descriptionDone=['Copied', 'artifacts', 'to', 'binary', 'repo']))
