@@ -126,7 +126,9 @@ class AutobuilderEC2Worker(AutobuilderWorker):
         self.ec2tags = ec2params.tags
         if self.ec2tags:
             if 'Name' not in self.ec2tags:
-                self.ec2tags['Name'] = self.name
+                tagscopy = self.ec2tags.copy()
+                tagscopy['Name'] = self.name
+                self.ec2tags = tagscopy
         else:
             self.ec2tags = {'Name': self.name}
         self.ec2_dev_mapping = None
