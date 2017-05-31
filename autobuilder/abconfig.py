@@ -2,6 +2,7 @@
 Autobuilder configuration class.
 """
 import os
+import boto3
 from twisted.python import log
 from buildbot.plugins import changes, schedulers, util, worker
 from buildbot.www.hooks.github import GitHubEventHandler
@@ -10,6 +11,40 @@ from autobuilder import factory
 
 ABCFG_DICT = {}
 DEFAULT_BLDTYPES = ['ci', 'snapshot', 'release']
+
+class myEC2LatentWorker(worker.EC2LatentWorker):
+    def _start_instance(self):
+        image = self.get_image()
+        launch_opts = dict(
+            ImageId=image.id, KeyName=self.keypair_name,
+            SecurityGroups=self.classic_security_groups,
+            InstanceType=self.instance_type, UserData=self.user_data,
+            Placement=self.placement, MinCount=1, MaxCount=1,
+            NetworkInterfaces=[{'AssociatePublicIpAddress': True,
+                                'DeviceIndex': 0,
+                                'Groups': self.security_group_ids,
+                                'SubnetId': self.subnet_id}],
+            IamInstanceProfile=self._remove_none_opts(
+                Name=self.instance_profile_name,
+            ),
+	    BlockDeviceMappings=self.block_device_map
+        )
+
+        launch_opts = self._remove_none_opts(launch_opts)
+	reservations = self.ec2.create_instances(
+            **launch_opts
+	)
+
+        self.instance = reservations[0]
+        instance_id, start_time = self._wait_for_instance()
+        if None not in [instance_id, image.id, start_time]:
+            if len(self.tags) > 0:
+		self.instance.create_tags(Tags=[{"Key": k, "Value": v}
+                                                for k, v in self.tags.items()])
+	    return [instance_id, image.id, start_time]
+	else:
+            self.failed_to_start(self.instance.id, self.instance.state['Name'])
+
 
 class Buildtype(object):
     def __init__(self, name, build_sdk=False, install_sdk=False,
@@ -215,20 +250,20 @@ class AutobuilderConfig(object):
                 if ostype not in wnames.keys():
                     wnames[ostype] = []
                 for w in ec2workers[ostype]:
-                    self.workers.append(worker.EC2LatentWorker(name=w.name,
-                                                               password=w.password,
-                                                               max_builds=1,
-                                                               instance_type=w.ec2params.instance_type,
-                                                               ami=w.ec2params.ami,
-                                                               keypair_name=w.ec2params.keypair,
-                                                               security_group_ids=w.ec2params.secgroup_ids,
-                                                               region=w.ec2params.region,
-                                                               subnet_id=w.ec2params.subnet,
-                                                               user_data='WORKERNAME="%s"\nWORKERSECRET="%s"\nMASTER="%s"\n' %
-                                                                         (w.name, w.password, os.getenv('MASTER_IP_ADDRESS')),
-                                                               elastic_ip=w.ec2params.elastic_ip,
-                                                               tags=w.ec2tags,
-                                                               block_device_map=w.ec2_dev_mapping))
+                    self.workers.append(myEC2LatentWorker(name=w.name,
+                                                          password=w.password,
+                                                          max_builds=1,
+                                                          instance_type=w.ec2params.instance_type,
+                                                          ami=w.ec2params.ami,
+                                                          keypair_name=w.ec2params.keypair,
+                                                          security_group_ids=w.ec2params.secgroup_ids,
+                                                          region=w.ec2params.region,
+                                                          subnet_id=w.ec2params.subnet,
+                                                          user_data='WORKERNAME="%s"\nWORKERSECRET="%s"\nMASTER="%s"\n' %
+                                                          (w.name, w.password, os.getenv('MASTER_IP_ADDRESS')),
+                                                          elastic_ip=w.ec2params.elastic_ip,
+                                                          tags=w.ec2tags,
+                                                          block_device_map=w.ec2_dev_mapping))
                     self.worker_cfgs[w.name] = w
                     wnames[ostype].append(w.name)
 
