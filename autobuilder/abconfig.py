@@ -7,9 +7,8 @@ from twisted.python import log
 from buildbot.plugins import changes, schedulers, util, worker
 from buildbot.www.hooks.github import GitHubEventHandler
 from buildbot.config import BuilderConfig
-from autobuilder import factory
+from autobuilder import factory, settings
 
-ABCFG_DICT = {}
 DEFAULT_BLDTYPES = ['ci', 'snapshot', 'release']
 
 class myEC2LatentWorker(worker.EC2LatentWorker):
@@ -182,11 +181,11 @@ class AutobuilderEC2Worker(AutobuilderWorker):
             self.ec2_dev_mapping = [
                 { 'DeviceName': svp['name'], 'Ebs': ebs }
             ]
-                                         
+
 
 def get_project_for_url(repo_url, default_if_not_found=None):
-    for abcfg in ABCFG_DICT:
-        proj = ABCFG_DICT[abcfg].project_from_url(repo_url)
+    for abcfg in settings.settings_dict():
+        proj = settings.get_config_for_builder(abcfg).project_from_url(repo_url)
         if proj is not None:
             return proj
     return default_if_not_found
@@ -227,7 +226,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
 class AutobuilderConfig(object):
     def __init__(self, name, workers, controllers,
                  repos, distros, ec2workers=None):
-        if name in ABCFG_DICT:
+        if name in settings.settings_dict():
             raise RuntimeError('Autobuilder config %s already exists' % name)
         self.name = name
         ostypes = set()
@@ -285,7 +284,7 @@ class AutobuilderConfig(object):
         for d in self.distros:
             d.set_host_oses(self.ostypes)
         self.codebasemap = {self.repos[r].uri: r for r in self.repos}
-        ABCFG_DICT[name] = self
+        settings.set_config_for_builder(name, self)
 
     def codebase_generator(self, change_dict):
         return self.codebasemap[change_dict['repository']]

@@ -7,7 +7,7 @@ import time
 
 from buildbot.plugins import steps, util
 from buildbot.process.factory import BuildFactory
-import autobuilder.abconfig
+from autobuilder import settings
 
 ENV_VARS = {'PATH': util.Property('PATH'),
             'BB_ENV_EXTRAWHITE': util.Property('BB_ENV_EXTRAWHITE'),
@@ -15,7 +15,7 @@ ENV_VARS = {'PATH': util.Property('PATH'),
             }
 
 def _get_sdkinfo(props):
-    abcfg = abconfig.ABCFG_DICT[props.getProperty('autobuilder')]
+    abcfg = settings.get_config_for_builder(props.getProperty('autobuilder'))
     distro = abcfg.distrodict[props.getProperty('distro')]
     buildtype = props.getProperty('buildtype')
     return distro.btdict[buildtype]
@@ -82,7 +82,7 @@ def build_output_path(props):
 
 
 def worker_extraconfig(props):
-    abcfg = abconfig.ABCFG_DICT[props.getProperty('autobuilder')]
+    abcfg = settings.get_config_for_builder(props.getProperty('autobuilder'))
     wcfg = abcfg.worker_cfgs[props.getProperty('workername')]
     if wcfg:
         return wcfg.conftext
