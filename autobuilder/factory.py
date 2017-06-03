@@ -15,6 +15,7 @@ ENV_VARS = {'PATH': util.Property('PATH'),
             'BUILDDIR': util.Property('BUILDDIR')
             }
 
+
 def _get_sdkinfo(props):
     abcfg = settings.get_config_for_builder(props.getProperty('autobuilder'))
     distro = abcfg.distrodict[props.getProperty('distro')]
@@ -54,6 +55,7 @@ def sdk_stamp(props):
         return '--no-stamp'
     else:
         return '--date-stamp=' + props.getProperty('datestamp')
+
 
 # noinspection PyUnusedLocal
 def extract_env_vars(rc, stdout, stderr):
@@ -194,7 +196,7 @@ class DistroImage(BuildFactory):
                                                   extract_fn=extract_env_vars,
                                                   name='EnvironmentSetup',
                                                   description=['Running', 'setup', 'script'],
-                                            descriptionDone=['Ran', 'setup', 'script']))
+                                                  descriptionDone=['Ran', 'setup', 'script']))
         self.addStep(steps.StringDownload(s=make_autoconf, workerdest='auto.conf',
                                           workdir='build/build/conf', name='make-auto.conf',
                                           description=['Creating', 'auto.conf'],
@@ -244,8 +246,10 @@ class DistroImage(BuildFactory):
                                                         name='sdk-%s_%s_%s' % (sdkmach, image, tgt),
                                                         doStepIf=lambda step: build_sdk(step.build.getProperties()),
                                                         hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                                        description=['Building', sdkmach, 'SDK', image, '(' + tgt + ')'],
-                                                        descriptionDone=['Built', sdkmach, 'SDK', image, '(' + tgt + ')']))
+                                                        description=['Building', sdkmach, 'SDK', image,
+                                                                     '(' + tgt + ')'],
+                                                        descriptionDone=['Built', sdkmach, 'SDK', image,
+                                                                         '(' + tgt + ')']))
 
         self.addStep(steps.ShellCommand(command=['autorev-report', 'buildhistory'],
                                         workdir=util.Property('BUILDDIR'),

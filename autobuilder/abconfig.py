@@ -2,7 +2,6 @@
 Autobuilder configuration class.
 """
 import os
-import boto3
 from twisted.python import log
 from buildbot.plugins import changes, schedulers, util, worker
 from buildbot.www.hooks.github import GitHubEventHandler
@@ -11,7 +10,8 @@ from autobuilder import factory, settings
 
 DEFAULT_BLDTYPES = ['ci', 'snapshot', 'release']
 
-class myEC2LatentWorker(worker.EC2LatentWorker):
+
+class MyEC2LatentWorker(worker.EC2LatentWorker):
     def _start_instance(self):
         image = self.get_image()
         launch_opts = dict(
@@ -26,22 +26,20 @@ class myEC2LatentWorker(worker.EC2LatentWorker):
             IamInstanceProfile=self._remove_none_opts(
                 Name=self.instance_profile_name,
             ),
-	    BlockDeviceMappings=self.block_device_map
+            BlockDeviceMappings=self.block_device_map
         )
 
         launch_opts = self._remove_none_opts(launch_opts)
-	reservations = self.ec2.create_instances(
-            **launch_opts
-	)
+        reservations = self.ec2.create_instances(**launch_opts)
 
         self.instance = reservations[0]
         instance_id, start_time = self._wait_for_instance()
         if None not in [instance_id, image.id, start_time]:
             if len(self.tags) > 0:
-		self.instance.create_tags(Tags=[{"Key": k, "Value": v}
+                self.instance.create_tags(Tags=[{"Key": k, "Value": v}
                                                 for k, v in self.tags.items()])
-	    return [instance_id, image.id, start_time]
-	else:
+            return [instance_id, image.id, start_time]
+        else:
             self.failed_to_start(self.instance.id, self.instance.state['Name'])
 
 
@@ -57,6 +55,7 @@ class Buildtype(object):
         self.defaulttype = defaulttype
         self.production_release = production_release
 
+
 class Repo(object):
     def __init__(self, name, uri, pollinterval=None, project=None,
                  submodules=False):
@@ -66,6 +65,7 @@ class Repo(object):
         self.project = project or name
         self.submodules = submodules
 
+
 class TargetImageSet(object):
     def __init__(self, name, images=None, sdkimages=None):
         self.name = name
@@ -74,6 +74,7 @@ class TargetImageSet(object):
                                name)
         self.images = images
         self.sdkimages = sdkimages
+
 
 class Distro(object):
     def __init__(self, name, reponame, branch, email, path, dldir, ssmirror,
@@ -140,8 +141,7 @@ class AutobuilderController(AutobuilderWorker):
 class EC2Params(object):
     def __init__(self, instance_type, ami, keypair, secgroup_ids,
                  region=None, subnet=None, elastic_ip=None, tags=None,
-                 scratchvolparams={'name': '/dev/xvdf', 'size': 150,
-                                   'type': 'standard', 'iops': None}):
+                 scratchvolparams=None):
         self.instance_type = instance_type
         self.ami = ami
         self.keypair = keypair
@@ -150,10 +150,16 @@ class EC2Params(object):
         self.subnet = subnet
         self.elastic_ip = elastic_ip
         self.tags = tags
-        self.scratchvolparams = scratchvolparams
+        if scratchvolparams:
+            self.scratchvolparams = scratchvolparams
+        else:
+            self.scratchvolparams = {'name': '/dev/xvdf', 'size': 150,
+                                     'type': 'standard', 'iops': None}
 
 
 class AutobuilderEC2Worker(AutobuilderWorker):
+    master_ip_address = os.getenv('MASTER_IP_ADDRESS')
+
     def __init__(self, name, password, ec2params, conftext=None):
         AutobuilderWorker.__init__(self, name, password, conftext)
         self.ec2params = ec2params
@@ -179,8 +185,13 @@ class AutobuilderEC2Worker(AutobuilderWorker):
                 else:
                     ebs['Iops'] = 1000
             self.ec2_dev_mapping = [
-                { 'DeviceName': svp['name'], 'Ebs': ebs }
+                {'DeviceName': svp['name'], 'Ebs': ebs}
             ]
+
+    def userdata(self):
+        return 'WORKERNAME="{}"\n'.format(self.name) + \
+               'WORKERSECRET="{}"\n'.format(self.password) + \
+               'MASTER="{}"\n'.format(self.master_ip_address)
 
 
 def get_project_for_url(repo_url, default_if_not_found=None):
@@ -190,12 +201,12 @@ def get_project_for_url(repo_url, default_if_not_found=None):
             return proj
     return default_if_not_found
 
+
 def codebasemap_from_github_payload(payload):
     return get_project_for_url(payload['repository']['html_url'])
 
 
 class AutobuilderGithubEventHandler(GitHubEventHandler):
-
     # noinspection PyMissingConstructor
     def __init__(self, secret, strict, codebase=None,
                  github_property_whitelist=None):
@@ -203,7 +214,6 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
             codebase = codebasemap_from_github_payload
         GitHubEventHandler.__init__(self, secret, strict, codebase,
                                     github_property_whitelist)
-
 
     def handle_push(self, payload, event):
         # This field is unused:
@@ -216,40 +226,31 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         project = get_project_for_url(repo_url,
                                       default_if_not_found=payload['repository']['full_name'])
 
-        changes = self._process_change(payload, user, repo, repo_url, project,
-                                       event)
+        ch = self._process_change(payload, user, repo, repo_url, project, event)
 
-        log.msg("Received %d changes from github" % len(changes))
+        log.msg("Received {} changes from github".format(len(ch)))
 
-        return changes, 'git'
+        return ch, 'git'
+
 
 class AutobuilderConfig(object):
     def __init__(self, name, workers, controllers,
-                 repos, distros, ec2workers=None):
+                 repos, distros):
         if name in settings.settings_dict():
-            raise RuntimeError('Autobuilder config %s already exists' % name)
+            raise RuntimeError('Autobuilder config {} already exists'.format(name))
         self.name = name
         ostypes = set()
         self.workers = []
         self.worker_cfgs = {}
         wnames = {}
         controllernames = []
-        if workers:
-            ostypes |= set(workers.keys())
-            for ostype in workers:
-                if ostype not in wnames.keys():
-                    wnames[ostype] = []
-                for w in workers[ostype]:
-                    self.workers.append(worker.Worker(w.name, w.password, max_builds=1))
-                    self.worker_cfgs[w.name] = w
-                    wnames[ostype].append(w.name)
-        if ec2workers:
-            ostypes |= set(ec2workers.keys())
-            for ostype in ec2workers:
-                if ostype not in wnames.keys():
-                    wnames[ostype] = []
-                for w in ec2workers[ostype]:
-                    self.workers.append(myEC2LatentWorker(name=w.name,
+        ostypes |= set(workers.keys())
+        for ostype in workers:
+            if ostype not in wnames.keys():
+                wnames[ostype] = []
+            for w in workers[ostype]:
+                if isinstance(w, AutobuilderEC2Worker):
+                    self.workers.append(MyEC2LatentWorker(name=w.name,
                                                           password=w.password,
                                                           max_builds=1,
                                                           instance_type=w.ec2params.instance_type,
@@ -258,16 +259,32 @@ class AutobuilderConfig(object):
                                                           security_group_ids=w.ec2params.secgroup_ids,
                                                           region=w.ec2params.region,
                                                           subnet_id=w.ec2params.subnet,
-                                                          user_data='WORKERNAME="%s"\nWORKERSECRET="%s"\nMASTER="%s"\n' %
-                                                          (w.name, w.password, os.getenv('MASTER_IP_ADDRESS')),
+                                                          user_data=w.userdata(),
                                                           elastic_ip=w.ec2params.elastic_ip,
                                                           tags=w.ec2tags,
                                                           block_device_map=w.ec2_dev_mapping))
-                    self.worker_cfgs[w.name] = w
-                    wnames[ostype].append(w.name)
+                else:
+                    self.workers.append(worker.Worker(w.name, w.password, max_builds=1))
+                self.worker_cfgs[w.name] = w
+                wnames[ostype].append(w.name)
 
         for c in controllers:
-            self.workers.append(worker.Worker(c.name, c.password, max_builds=1))
+            if isinstance(c, AutobuilderEC2Worker):
+                self.workers.append(MyEC2LatentWorker(name=c.name,
+                                                      password=c.password,
+                                                      max_builds=1,
+                                                      instance_type=c.ec2params.instance_type,
+                                                      ami=c.ec2params.ami,
+                                                      keypair_name=c.ec2params.keypair,
+                                                      security_group_ids=c.ec2params.secgroup_ids,
+                                                      region=c.ec2params.region,
+                                                      subnet_id=c.ec2params.subnet,
+                                                      user_data=c.userdata(),
+                                                      elastic_ip=c.ec2params.elastic_ip,
+                                                      tags=c.ec2tags,
+                                                      block_device_map=c.ec2_dev_mapping))
+            else:
+                self.workers.append(worker.Worker(c.name, c.password, max_builds=1))
             # controllers aren't normal build workers
             self.worker_cfgs[c.name] = None
             controllernames.append(c.name)
@@ -297,12 +314,12 @@ class AutobuilderConfig(object):
 
     @property
     def change_sources(self):
-        return [GitPoller(repourl=self.repos[r].uri,
-                          workdir='gitpoller-' + self.repos[r].name,
-                          branches=[d.branch for d in self.distros
-                                     if d.reponame == r],
-                          pollinterval=self.repos[r].pollinterval,
-                          pollAtLaunch=True, project=self.repos[r].project)
+        return [changes.GitPoller(repourl=self.repos[r].uri,
+                                  workdir='gitpoller-' + self.repos[r].name,
+                                  branches=[d.branch for d in self.distros
+                                            if d.reponame == r],
+                                  pollinterval=self.repos[r].pollinterval,
+                                  pollAtLaunch=True, project=self.repos[r].project)
                 for r in self.repos if self.repos[r].pollinterval]
 
     @property
@@ -312,18 +329,18 @@ class AutobuilderConfig(object):
             md_filter = util.ChangeFilter(project=self.repos[d.reponame].project,
                                           branch=d.branch, codebase=d.reponame)
             s.append(schedulers.SingleBranchScheduler(name=d.name,
-                                           change_filter=md_filter,
-                                           treeStableTimer=d.repotimer,
-                                           properties={'buildtype': d.default_buildtype},
-                                           codebases=d.codebases(self.repos),
-                                           createAbsoluteSourceStamps=True,
-                                           builderNames=[d.name]))
+                                                      change_filter=md_filter,
+                                                      treeStableTimer=d.repotimer,
+                                                      properties={'buildtype': d.default_buildtype},
+                                                      codebases=d.codebases(self.repos),
+                                                      createAbsoluteSourceStamps=True,
+                                                      builderNames=[d.name]))
             for imgset in d.targets:
                 name = d.name + '-' + imgset.name
                 s += [schedulers.Triggerable(name=name + '-' + otype,
-                                  codebases=d.codebases(self.repos),
-                                  properties={'hostos': otype},
-                                  builderNames=[name + '-' + otype])
+                                             codebases=d.codebases(self.repos),
+                                             properties={'hostos': otype},
+                                             builderNames=[name + '-' + otype])
                       for otype in d.host_oses]
             # noinspection PyTypeChecker
             forceprops = util.ChoiceStringParameter(name='buildtype',
