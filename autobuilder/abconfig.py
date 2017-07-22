@@ -83,6 +83,7 @@ class Distro(object):
                  artifacts=None,
                  sstate_mirrorvar='SSTATE_MIRRORS = "file://.* file://%s/PATH"',
                  dl_mirrorvar=None,
+                 controllers=None,
                  buildtypes=None, buildnum_template='DISTRO_BUILDNUM = "-%s"',
                  release_buildname_variable='DISTRO_BUILDNAME',
                  dl_mirror='file:///dummy/no/such/path'):
@@ -102,6 +103,7 @@ class Distro(object):
         self.sstate_mirrorvar = sstate_mirrorvar
         self.dl_mirrorvar = dl_mirrorvar
         self.dl_mirror = dl_mirror
+        self.controllers = controllers
         self.buildnum_template = buildnum_template
         self.release_buildname_variable = release_buildname_variable
         self.buildtypes = buildtypes
@@ -372,8 +374,12 @@ class AutobuilderConfig(object):
                      'distro': d.name,
                      'buildnum_template': d.buildnum_template,
                      'release_buildname_variable': d.release_buildname_variable}
+            if d.controllers is None:
+                cnames = self.controller_names
+            else:
+                cnames = sorted([c for c in self.controller_names if c in d.controllers])
             b.append(BuilderConfig(name=d.name,
-                                   workernames=self.controller_names,
+                                   workernames=cnames,
                                    properties=props.copy(),
                                    factory=factory.DistroBuild(d, self.repos)))
             repo = self.repos[d.reponame]
