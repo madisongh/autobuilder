@@ -211,11 +211,11 @@ def codebasemap_from_github_payload(payload):
 class AutobuilderGithubEventHandler(GitHubEventHandler):
     # noinspection PyMissingConstructor
     def __init__(self, secret, strict, codebase=None,
-                 github_property_whitelist=None):
+                 github_property_whitelist=None, master=None):
         if codebase is None:
             codebase = codebasemap_from_github_payload
         GitHubEventHandler.__init__(self, secret, strict, codebase,
-                                    github_property_whitelist)
+                                    github_property_whitelist, master)
 
     def handle_push(self, payload, event):
         # This field is unused:
@@ -228,7 +228,9 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         project = get_project_for_url(repo_url,
                                       default_if_not_found=payload['repository']['full_name'])
 
-        ch = self._process_change(payload, user, repo, repo_url, project, event)
+        properties = self.extractProperties(payload)
+        ch = self._process_change(payload, user, repo, repo_url, project,
+                                  event, properties)
 
         log.msg("Received {} changes from github".format(len(ch)))
 
