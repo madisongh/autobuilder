@@ -8,10 +8,11 @@ import re
 import stat
 import optparse
 import shutil
+import autobuilder.utils.locks as locks
 from datetime import date, timedelta
 from autobuilder.utils.logutils import Log
 
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 
 log = Log(__name__)
 
@@ -157,6 +158,10 @@ packages.
             raise RuntimeError('sstate-mirror directory %s not found' % args[0])
     log.set_level(options.debug, options.verbose)
     mirrorbase = os.path.realpath(args[0])
+    lock = locks.lockfile(os.path.join(mirrorbase, '.updatelock'))
+    if not lock:
+        log.fatal('could not lock sstate-mirror directory')
+        return 1
     if options.mode == 'clean':
         rmcount = 0
         for subdir in os.listdir(mirrorbase):
@@ -169,6 +174,7 @@ packages.
         if not os.path.isdir(options.sstate_dir):
             log.note('sstate-cache directory %s not found - nothing to do',
                      options.sstate_dir)
+            locks.unlockfile(lock)
             return 0
         lsbstr = None
         twohex = re.compile(r'^[0-9a-f][0-9a-f]$')
@@ -196,6 +202,7 @@ packages.
             log.plain('# UPDATE: %d copies', cpcount)
         else:
             log.note('Copied %d new entries', cpcount)
+        locks.unlockfile(lock)
     return 0
 
 

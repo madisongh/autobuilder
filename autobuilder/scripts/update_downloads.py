@@ -8,10 +8,11 @@ import re
 import stat
 import optparse
 import shutil
+import autobuilder.utils.locks as locks
 from datetime import date, timedelta
 from autobuilder.utils.logutils import Log
 
-__version__ = '0.3.0'
+__version__ = '0.3.1'
 
 log = Log(__name__)
 
@@ -38,6 +39,8 @@ def do_cleanup(mirrorbase, options):
                     shutil.rmtree(os.path.join(dirpath, d), ignore_errors=True)
                     dirnames.remove(d)
         for filename in filenames:
+            if filename == '.update-lock':
+                continue
             mirrorfile = os.path.join(dirpath, filename)
             if os.path.islink(mirrorfile):
                 log.warn('Found symlink in mirror: %s', mirrorfile)
@@ -170,6 +173,10 @@ The '.done' marker files are not copied, nor are any source repositories
             raise RuntimeError('downloads mirror directory %s not found' % args[0])
     log.set_level(options.debug, options.verbose)
     mirrorbase = os.path.realpath(args[0])
+    lock = locks.lockfile(os.path.join(mirrorbase, '.update-lock'))
+    if lock is None:
+        log.fatal('could not lock downloads mirror for updating')
+        return 1
     if options.mode == 'clean':
         rmcount = do_cleanup(mirrorbase, options)
         if options.dry_run:
@@ -180,6 +187,7 @@ The '.done' marker files are not copied, nor are any source repositories
         if not os.path.isdir(options.dl_dir):
             log.note('downloads directory %s not found - nothing to do',
                      options.dl_dir)
+            locks.unlockfile(lock)
             return 0
         cachebase = os.path.realpath(options.dl_dir)
         cpcount = do_copy(cachebase, mirrorbase, options)
@@ -187,6 +195,7 @@ The '.done' marker files are not copied, nor are any source repositories
             log.plain('# UPDATE: %d copies', cpcount)
         else:
             log.note('Copied %d new entries', cpcount)
+    locks.unlockfile(lock)
     return 0
 
 
