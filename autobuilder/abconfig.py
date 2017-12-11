@@ -78,7 +78,7 @@ class TargetImageSet(object):
 
 class Distro(object):
     def __init__(self, name, reponame, branch, email, path,
-                 dldir=None, ssmirror=None,
+                 dldir='build/downloads', ssmirror=None,
                  targets=None, sdkmachines=None,
                  host_oses=None, setup_script='./setup-env', repotimer=300,
                  artifacts=None,

@@ -13,7 +13,8 @@ def lockfile(name, shared=False):
     :return: object to pass to unlockfile
     """
     dirname = os.path.dirname(name)
-    os.makedirs(dirname)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
     f = None
     # noinspection PyBroadException
     try:
