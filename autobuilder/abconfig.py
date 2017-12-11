@@ -211,12 +211,10 @@ def codebasemap_from_github_payload(payload):
 
 class AutobuilderGithubEventHandler(GitHubEventHandler):
     # noinspection PyMissingConstructor
-    def __init__(self, secret, strict, codebase=None,
-                 github_property_whitelist=None, master=None):
+    def __init__(self, secret, strict, codebase=None, **kwargs):
         if codebase is None:
             codebase = codebasemap_from_github_payload
-        GitHubEventHandler.__init__(self, secret, strict, codebase,
-                                    github_property_whitelist, master)
+        GitHubEventHandler.__init__(self, secret, strict, codebase, **kwargs)
 
     def handle_push(self, payload, event):
         # This field is unused:
