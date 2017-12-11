@@ -77,8 +77,9 @@ class TargetImageSet(object):
 
 
 class Distro(object):
-    def __init__(self, name, reponame, branch, email, path, dldir, ssmirror,
-                 targets, sdkmachines=None,
+    def __init__(self, name, reponame, branch, email, path,
+                 dldir=None, ssmirror=None,
+                 targets=None, sdkmachines=None,
                  host_oses=None, setup_script='./setup-env', repotimer=300,
                  artifacts=None,
                  sstate_mirrorvar='SSTATE_MIRRORS = "file://.* file://%s/PATH"',
@@ -86,7 +87,7 @@ class Distro(object):
                  controllers=None,
                  buildtypes=None, buildnum_template='DISTRO_BUILDNUM = "-%s"',
                  release_buildname_variable='DISTRO_BUILDNAME',
-                 dl_mirror='file:///dummy/no/such/path'):
+                 dl_mirror=None):
         self.name = name
         self.reponame = reponame
         self.branch = branch
