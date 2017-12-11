@@ -291,7 +291,7 @@ class DistroImage(BuildFactory):
                                         description=['Updating', 'shared-state', 'mirror'],
                                         descriptionDone=['Updated', 'shared-state', 'mirror']))
         self.addStep(steps.ShellCommand(command=['update-downloads', '-v', '-l',
-                                                 util.Property('downloads_dir') or 'build/downloads',
+                                                 util.Property('downloads_dir') or 'downloads',
                                                  util.Property('dl_mirror')], workdir=util.Property('BUILDDIR'),
                                         doStepIf=lambda step: step.build.getProperty('dl_mirror') is not None,
                                         hideStepIf=lambda results, step: results == bbres.SKIPPED,
