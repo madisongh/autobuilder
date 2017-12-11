@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='autobuilder',
-    version='0.11.4',
+    version='0.11.5',
     packages=find_packages(),
     license='MIT',
     author='Matt Madison',
