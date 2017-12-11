@@ -57,6 +57,14 @@ def sdk_stamp(props):
         return '--date-stamp=' + props.getProperty('datestamp')
 
 
+@util.renderer
+def dl_dir(props):
+    dldir = props.getProperty('downloads_dir')
+    if dldir:
+        return dldir
+    return 'downloads'
+
+
 # noinspection PyUnusedLocal
 def extract_env_vars(rc, stdout, stderr):
     pat = re.compile('^(' + '|'.join(ENV_VARS.keys()) + ')=(.*)')
@@ -290,8 +298,7 @@ class DistroImage(BuildFactory):
                                         name='UpdateSharedState', timeout=None,
                                         description=['Updating', 'shared-state', 'mirror'],
                                         descriptionDone=['Updated', 'shared-state', 'mirror']))
-        self.addStep(steps.ShellCommand(command=['update-downloads', '-v', '-l',
-                                                 util.Property('downloads_dir') or 'downloads',
+        self.addStep(steps.ShellCommand(command=['update-downloads', '-v', '-l', dl_dir(step.build.getProperties()),
                                                  util.Property('dl_mirror')], workdir=util.Property('BUILDDIR'),
                                         doStepIf=lambda step: step.build.getProperty('dl_mirror') is not None,
                                         hideStepIf=lambda results, step: results == bbres.SKIPPED,
