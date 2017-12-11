@@ -173,6 +173,15 @@ class DistroBuild(util.BuildFactory):
                                         timeout=None,
                                         description=['Cleaning', 'sstate', 'mirror'],
                                         descriptionDone=['Cleaned', 'sstate', 'mirror']))
+        self.addStep(steps.ShellCommand(command=['update-downloads',
+                                                 '--mode=clean', '-v',
+                                                 util.Property('dl_mirror')],
+                                        doStepIf=lambda step: step.build.getProperty('dl_mirror') is not None,
+                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
+                                        name='clean_dl_mirror',
+                                        timeout=None,
+                                        description=['Cleaning', 'downloads', 'mirror'],
+                                        descriptionDone=['Cleaned', 'downloads', 'mirror']))
 
 
 class DistroImage(BuildFactory):
@@ -226,7 +235,7 @@ class DistroImage(BuildFactory):
                 tgtenv = env_vars.copy()
                 tgtenv['MACHINE'] = tgt
                 image = sdktargets[tgt]
-                if image != 'buildtools-tarball':
+                if image not in ['buildtools-tarball', 'uninative-tarball', 'meta-toolchain']:
                     # noinspection PyAugmentAssignment
                     image = '-c populate_sdk ' + image
                 if sdkmachines is None:
@@ -279,6 +288,13 @@ class DistroImage(BuildFactory):
                                         name='UpdateSharedState', timeout=None,
                                         description=['Updating', 'shared-state', 'mirror'],
                                         descriptionDone=['Updated', 'shared-state', 'mirror']))
+        self.addStep(steps.ShellCommand(command=['update-downloads', '-v', '-l', util.Property('downloads_dir'),
+                                                 util.Property('dl_mirror')], workdir=util.Property('BUILDDIR'),
+                                        doStepIf=lambda step: step.build.getProperty('dl_mirror') is not None,
+                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
+                                        name='UpdateDownloads', timeout=None,
+                                        description=['Updating', 'downloads', 'mirror'],
+                                        descriptionDone=['Updated', 'downloads', 'mirror']))
         if sdktargets is not None:
             for tgt in sdktargets:
                 cmd = ['install-sdk', sdk_root, sdk_stamp,
