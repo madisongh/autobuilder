@@ -109,7 +109,7 @@ def make_autoconf(props):
     if props.getProperty('downloads_dir'):
         result.append('DL_DIR = "%s"' % props.getProperty('downloads_dir'))
     if props.getProperty('dl_mirrorvar') != "" and props.getProperty('dl_mirror') is not None:
-        result.append('%s = "%s"' % (props.getProperty('dl_mirrorvar'), props.getProperty('dl_mirror')))
+        result.append(props.getProperty('dl_mirrorvar') % props.getProperty('dl_mirror'))
         result.append('BB_GENERATE_MIRROR_TARBALLS = "1"\n')
     if props.getProperty('sstate_mirrorvar') != "" and props.getProperty('sstate_mirror') is not None:
         result.append(props.getProperty('sstate_mirrorvar') % props.getProperty('sstate_mirror'))
