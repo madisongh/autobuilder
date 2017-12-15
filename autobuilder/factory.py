@@ -16,7 +16,7 @@ ENV_VARS = {'PATH': util.Property('PATH'),
             }
 
 
-def _get_sdkinfo(props):
+def _get_btinfo(props):
     abcfg = settings.get_config_for_builder(props.getProperty('autobuilder'))
     distro = abcfg.distrodict[props.getProperty('distro')]
     buildtype = props.getProperty('buildtype')
@@ -24,20 +24,24 @@ def _get_sdkinfo(props):
 
 
 def build_sdk(props):
-    return _get_sdkinfo(props).build_sdk
+    return _get_btinfo(props).build_sdk
 
 
 def install_sdk(props):
-    return props.getProperty('primary_hostos') and _get_sdkinfo(props).install_sdk
+    return props.getProperty('primary_hostos') and _get_btinfo(props).install_sdk
 
 
 def is_release_build(props):
-    return _get_sdkinfo(props).production_release
+    return _get_btinfo(props).production_release
+
+
+def without_sstate(props):
+    return _get_btinfo(props).disable_sstate
 
 
 @util.renderer
 def sdk_root(props):
-    root = _get_sdkinfo(props).sdk_root
+    root = _get_btinfo(props).sdk_root
     if root:
         return '--install-root=' + root
     else:
@@ -46,12 +50,12 @@ def sdk_root(props):
 
 @util.renderer
 def sdk_use_current(props):
-    return '--update-current' if _get_sdkinfo(props).current_symlink else ''
+    return '--update-current' if _get_btinfo(props).current_symlink else ''
 
 
 @util.renderer
 def sdk_stamp(props):
-    if _get_sdkinfo(props).production_release:
+    if _get_btinfo(props).production_release:
         return '--no-stamp'
     else:
         return '--date-stamp=' + props.getProperty('datestamp')
@@ -111,8 +115,11 @@ def make_autoconf(props):
     if props.getProperty('dl_mirrorvar') != "" and props.getProperty('dl_mirror') is not None:
         result.append(props.getProperty('dl_mirrorvar') % props.getProperty('dl_mirror'))
         result.append('BB_GENERATE_MIRROR_TARBALLS = "1"\n')
-    if props.getProperty('sstate_mirrorvar') != "" and props.getProperty('sstate_mirror') is not None:
-        result.append(props.getProperty('sstate_mirrorvar') % props.getProperty('sstate_mirror'))
+    if props.getProperty('sstate_mirrorvar') != "":
+        if without_sstate(props):
+            result.append(props.getProperty('sstate_mirrorvar') % '/error/no/such/path')
+        elif props.getProperty('sstate_mirror') is not None:
+            result.append(props.getProperty('sstate_mirrorvar') % props.getProperty('sstate_mirror'))
     result.append('BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"')
     extraconfig = worker_extraconfig(props)
     if len(extraconfig) > 0:

@@ -2,13 +2,15 @@
 Autobuilder configuration class.
 """
 import os
+from random import SystemRandom
 from twisted.python import log
 from buildbot.plugins import changes, schedulers, util, worker
 from buildbot.www.hooks.github import GitHubEventHandler
 from buildbot.config import BuilderConfig
 from autobuilder import factory, settings
 
-DEFAULT_BLDTYPES = ['ci', 'snapshot', 'release']
+DEFAULT_BLDTYPES = ['ci', 'no-sstate', 'snapshot', 'release']
+RNG = SystemRandom()
 
 
 class MyEC2LatentWorker(worker.EC2LatentWorker):
@@ -46,7 +48,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
 class Buildtype(object):
     def __init__(self, name, build_sdk=False, install_sdk=False,
                  sdk_root=None, current_symlink=False, defaulttype=False,
-                 production_release=False):
+                 production_release=False, disable_sstate=False):
         self.name = name
         self.build_sdk = build_sdk
         self.install_sdk = install_sdk
@@ -54,6 +56,7 @@ class Buildtype(object):
         self.current_symlink = current_symlink
         self.defaulttype = defaulttype
         self.production_release = production_release
+        self.disable_sstate = disable_sstate
 
 
 class Repo(object):
@@ -87,7 +90,8 @@ class Distro(object):
                  controllers=None,
                  buildtypes=None, buildnum_template='DISTRO_BUILDNUM = "-%s"',
                  release_buildname_variable='DISTRO_BUILDNAME',
-                 dl_mirror=None):
+                 dl_mirror=None,
+                 weekly_type=None):
         self.name = name
         self.reponame = reponame
         self.branch = branch
@@ -116,6 +120,9 @@ class Distro(object):
         if len(defaultlist) != 1:
             raise RuntimeError('Must set exactly one default build type for %s' % self.name)
         self.default_buildtype = defaultlist[0]
+        if weekly_type is not None and weekly_type not in self.btdict.keys():
+            raise RuntimeError('Weekly build type for %s set to unknown type: %s' % (self.name, weekly_type))
+        self.weekly_type = weekly_type
 
     def codebases(self, repos):
         cbdict = {self.reponame: {'repository': repos[self.reponame].uri}}
@@ -354,6 +361,16 @@ class AutobuilderConfig(object):
                                                codebases=d.codebaseparamlist(self.repos),
                                                properties=[forceprops],
                                                builderNames=[d.name]))
+            if d.weekly_type is not None:
+                slot = settings.get_weekly_slot()
+                s.append(schedulers.Nightly(name=d.name + '-' + 'weekly',
+                                            properties={'buildtype': d.weekly_type},
+                                            codebases=d.codebases(self.repos),
+                                            createAbsoluteSourceStamps=True,
+                                            builderNames=[d.name],
+                                            dayOfWeek=slot.dayOfWeek,
+                                            hour=slot.hour,
+                                            minute=slot.minute))
         return s
 
     @property
