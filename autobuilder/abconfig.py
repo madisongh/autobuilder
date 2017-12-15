@@ -163,7 +163,7 @@ class EC2Params(object):
         if scratchvolparams:
             self.scratchvolparams = scratchvolparams
         else:
-            self.scratchvolparams = {'name': '/dev/xvdf', 'size': 150,
+            self.scratchvolparams = {'name': '/dev/xvdf', 'size': 200,
                                      'type': 'standard', 'iops': None}
 
 
