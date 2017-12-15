@@ -162,7 +162,7 @@ The '.done' marker files are not copied, nor are any source repositories
                       action='store_true', dest='dry_run')
     parser.add_option('-a', '--prune-age',
                       help='age, in days, to qualify files for removal',
-                      action='store', dest='prune_age', type='int', default=60)
+                      action='store', dest='prune_age', type='int', default=180)
     options, args = parser.parse_args()
     if len(args) < 1:
         raise RuntimeError('no downloads mirror directory name specified')
