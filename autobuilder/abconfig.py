@@ -129,7 +129,12 @@ class Distro(object):
         return cbdict
 
     def codebaseparamlist(self, repos):
-        return [util.CodebaseParameter(codebase=self.reponame, repository=repos[self.reponame].uri)]
+        return [util.CodebaseParameter(codebase=self.reponame,
+                                       repository=util.FixedParameter(name='repository',
+                                                                      default=repos[self.reponame].uri),
+                                       branch=util.FixedParameter(name='branch', default=self.branch),
+                                       project=util.FixedParameter(name='project',
+                                                                   default=repos[self.reponame].project))]
 
     def set_host_oses(self, default_oses):
         if self.host_oses is None:
@@ -365,7 +370,7 @@ class AutobuilderConfig(object):
                 slot = settings.get_weekly_slot()
                 s.append(schedulers.Nightly(name=d.name + '-' + 'weekly',
                                             properties={'buildtype': d.weekly_type},
-                                            codebases=d.codebases(self.repos),
+                                            codebases=d.codebaseparamlist(self.repos),
                                             createAbsoluteSourceStamps=True,
                                             builderNames=[d.name],
                                             dayOfWeek=slot.dayOfWeek,
