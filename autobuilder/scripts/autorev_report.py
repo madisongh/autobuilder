@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2015 by Matthew Madison
+# Copyright 2015-2018 by Matthew Madison
 # Distributed under license.
 
 import os
@@ -49,9 +49,10 @@ directory tree and examining the latest_srcrev files.
     options, args = parser.parse_args()
     if len(args) < 1:
         raise RuntimeError('no buildhistory directory name specified')
-    if not os.path.isdir(args[0]):
-            raise RuntimeError('buildhistory directory %s not found' % args[0])
     log.set_level(options.debug, options.verbose)
+    if not os.path.isdir(args[0]):
+        log.note('buildhistory directory %s not found, nothing to do' % args[0])
+        return 0
     buildhistbase = os.path.realpath(args[0])
     autorevcount = 0
     for dirpath, _, filenames in os.walk(os.path.join(buildhistbase, 'packages')):
