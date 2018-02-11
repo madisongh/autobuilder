@@ -91,7 +91,8 @@ class Distro(object):
                  buildtypes=None, buildnum_template='DISTRO_BUILDNUM = "-%s"',
                  release_buildname_variable='DISTRO_BUILDNAME',
                  dl_mirror=None,
-                 weekly_type=None):
+                 weekly_type=None,
+                 push_type='__default__'):
         self.name = name
         self.reponame = reponame
         self.branch = branch
@@ -123,6 +124,10 @@ class Distro(object):
         if weekly_type is not None and weekly_type not in self.btdict.keys():
             raise RuntimeError('Weekly build type for %s set to unknown type: %s' % (self.name, weekly_type))
         self.weekly_type = weekly_type
+        if push_type:
+            self.push_type = push_type if push_type != '__default__' else self.default_buildtype
+        else:
+            self.push_type = None
 
     def codebases(self, repos):
         cbdict = {self.reponame: {'repository': repos[self.reponame].uri}}
@@ -240,12 +245,14 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
                                       default_if_not_found=payload['repository']['full_name'])
 
         properties = self.extractProperties(payload)
-        ch = self._process_change(payload, user, repo, repo_url, project,
-                                  event, properties)
+        changeset = self._process_change(payload, user, repo, repo_url, project,
+                                         event, properties)
+        for ch in changeset:
+            ch['category'] = 'push'
 
-        log.msg("Received {} changes from github".format(len(ch)))
+        log.msg("Received {} changes from github".format(len(changeset)))
 
-        return ch, 'git'
+        return changeset, 'git'
 
 
 class AutobuilderConfig(object):
@@ -329,27 +336,37 @@ class AutobuilderConfig(object):
 
     @property
     def change_sources(self):
-        return [changes.GitPoller(repourl=self.repos[r].uri,
-                                  workdir='gitpoller-' + self.repos[r].name,
-                                  branches=[d.branch for d in self.distros
-                                            if d.reponame == r],
-                                  pollinterval=self.repos[r].pollinterval,
-                                  pollAtLaunch=True, project=self.repos[r].project)
-                for r in self.repos if self.repos[r].pollinterval]
+        pollers = []
+        for r in self.repos:
+            if self.repos[r].pollinterval:
+                branches = set()
+                for d in self.distros:
+                    if d.reponame == r and d.push_type:
+                        branches.add(d.branch)
+                pollers.append(changes.GitPoller(self.repos[r].uri,
+                                                 workdir='gitpoller-' + self.repos[r].name,
+                                                 branches=sort(branches),
+                                                 category='push',
+                                                 pollinterval=self.repos[r].pollinterval,
+                                                 pollAtLaunch=True,
+                                                 project=self.repos[r].project))
+        return pollers
 
     @property
     def schedulers(self):
         s = []
         for d in self.distros:
-            md_filter = util.ChangeFilter(project=self.repos[d.reponame].project,
-                                          branch=d.branch, codebase=d.reponame)
-            s.append(schedulers.SingleBranchScheduler(name=d.name,
-                                                      change_filter=md_filter,
-                                                      treeStableTimer=d.repotimer,
-                                                      properties={'buildtype': d.default_buildtype},
-                                                      codebases=d.codebases(self.repos),
-                                                      createAbsoluteSourceStamps=True,
-                                                      builderNames=[d.name]))
+            if d.push_type is not None:
+                md_filter = util.ChangeFilter(project=self.repos[d.reponame].project,
+                                              branch=d.branch, codebase=d.reponame,
+                                              category='push')
+                s.append(schedulers.SingleBranchScheduler(name=d.name,
+                                                          change_filter=md_filter,
+                                                          treeStableTimer=d.repotimer,
+                                                          properties={'buildtype': d.push_type},
+                                                          codebases=d.codebases(self.repos),
+                                                          createAbsoluteSourceStamps=True,
+                                                          builderNames=[d.name]))
             for imgset in d.targets:
                 name = d.name + '-' + imgset.name
                 s += [schedulers.Triggerable(name=name + '-' + otype,
