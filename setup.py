@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='autobuilder',
-    version='0.12.3',
+    version='0.12.4',
     packages=find_packages(),
     license='MIT',
     author='Matt Madison',
@@ -16,5 +16,5 @@ setup(
             'autorev-report = autobuilder.scripts.autorev_report:main'
         ]
     },
-    install_requires=['buildbot>=0.9.14', 'boto3', 'twisted']
+    install_requires=['buildbot>=1.0.0', 'boto3', 'twisted']
 )
