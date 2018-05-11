@@ -227,6 +227,7 @@ the SDKs that the script can locate.
                 (output, errors) = process.run(cmd)
                 log.plain("%s", output)
             except Exception:
+                # noinspection PyUnboundLocalVariable
                 log.error("error installing %s:\n%s", sdk.name, errors)
                 error_count += 1
                 continue

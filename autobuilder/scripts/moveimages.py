@@ -22,7 +22,7 @@ def main():
         path = os.path.join('tmp/deploy/images', f)
         if os.path.isdir(path):
             continue
-        print "Moving %s to %s" % (path, machdir)
+        print("Moving {} to {}".format(path, machdir))
         shutil.move(path, machdir)
     return 0
 
