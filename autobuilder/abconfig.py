@@ -11,6 +11,8 @@ from autobuilder import factory, settings
 
 DEFAULT_BLDTYPES = ['ci', 'no-sstate', 'snapshot', 'release']
 RNG = SystemRandom()
+default_svp = {'name': '/dev/xvdf', 'size': 200,
+               'type': 'standard', 'iops': None}
 
 
 class MyEC2LatentWorker(worker.EC2LatentWorker):
@@ -161,7 +163,7 @@ class AutobuilderController(AutobuilderWorker):
 class EC2Params(object):
     def __init__(self, instance_type, ami, keypair, secgroup_ids,
                  region=None, subnet=None, elastic_ip=None, tags=None,
-                 scratchvolparams=None):
+                 scratchvolparams=default_svp):
         self.instance_type = instance_type
         self.ami = ami
         self.keypair = keypair
@@ -170,11 +172,7 @@ class EC2Params(object):
         self.subnet = subnet
         self.elastic_ip = elastic_ip
         self.tags = tags
-        if scratchvolparams:
-            self.scratchvolparams = scratchvolparams
-        else:
-            self.scratchvolparams = {'name': '/dev/xvdf', 'size': 200,
-                                     'type': 'standard', 'iops': None}
+        self.scratchvolparams = scratchvolparams
 
 
 class AutobuilderEC2Worker(AutobuilderWorker):
