@@ -385,7 +385,7 @@ class AutobuilderConfig(object):
                 slot = settings.get_weekly_slot()
                 s.append(schedulers.Nightly(name=d.name + '-' + 'weekly',
                                             properties={'buildtype': d.weekly_type},
-                                            codebases=d.codebaseparamlist(self.repos),
+                                            codebases=d.codebases(self.repos),
                                             createAbsoluteSourceStamps=True,
                                             builderNames=[d.name],
                                             dayOfWeek=slot.dayOfWeek,
