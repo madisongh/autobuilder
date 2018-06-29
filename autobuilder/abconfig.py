@@ -368,9 +368,9 @@ class AutobuilderController(AutobuilderWorker):
 
 
 class EC2Params(object):
-    def __init__(self, instance_type, ami, keypair, secgroup_ids,
+    def __init__(self, instance_type, ami, secgroup_ids, keypair=None,
                  region=None, subnet=None, elastic_ip=None, tags=None,
-                 scratchvolparams=default_svp):
+                 scratchvolparams=default_svp, instance_profile_name=None):
         self.instance_type = instance_type
         self.ami = ami
         self.keypair = keypair
@@ -380,6 +380,7 @@ class EC2Params(object):
         self.elastic_ip = elastic_ip
         self.tags = tags
         self.scratchvolparams = scratchvolparams
+        self.instance_profile_name = instance_profile_name
 
 
 class AutobuilderEC2Worker(AutobuilderWorker):
@@ -483,6 +484,7 @@ class AutobuilderConfig(object):
                                                           instance_type=w.ec2params.instance_type,
                                                           ami=w.ec2params.ami,
                                                           keypair_name=w.ec2params.keypair,
+                                                          instance_profile_name=w.ec2params.instance_profile_name,
                                                           security_group_ids=w.ec2params.secgroup_ids,
                                                           region=w.ec2params.region,
                                                           subnet_id=w.ec2params.subnet,
@@ -503,6 +505,7 @@ class AutobuilderConfig(object):
                                                       instance_type=c.ec2params.instance_type,
                                                       ami=c.ec2params.ami,
                                                       keypair_name=c.ec2params.keypair,
+                                                      instance_profile_name=c.ec2params.instance_profile_name,
                                                       security_group_ids=c.ec2params.secgroup_ids,
                                                       region=c.ec2params.region,
                                                       subnet_id=c.ec2params.subnet,
