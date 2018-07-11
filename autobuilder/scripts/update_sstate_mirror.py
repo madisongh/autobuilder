@@ -12,7 +12,7 @@ import autobuilder.utils.locks as locks
 from datetime import date, timedelta
 from autobuilder.utils.logutils import Log
 
-__version__ = '0.2.4'
+__version__ = '0.2.5'
 
 log = Log(__name__)
 
@@ -20,18 +20,19 @@ log = Log(__name__)
 def do_cleanup(mirrorbase, subdir, options):
     """
     Walks the sstate-mirror tree, pruning any shared state
-    files that are old enough (i.e., have a modification time
+    files that are old enough (i.e., have an atime or mtime
     older than prune_age days).
 
     Returns the number of files removed.
     """
+    whichtime = stat.ST_MTIME if options.touch else stat.ST_ATIME
     prune_age = timedelta(options.prune_age)
     now = date.today()
     removal_count = 0
     for dirpath, _, filenames in os.walk(os.path.join(mirrorbase, subdir)):
         for filename in filenames:
             if not (filename.endswith('.tgz') or filename.endswith('.siginfo')):
-                log.debug(2, 'Not cleaning up %s', filename)
+                log.warn('not cleaning stray file %s', filename)
                 continue
             mirrorfile = os.path.join(dirpath, filename)
             if os.path.islink(mirrorfile):
@@ -41,16 +42,17 @@ def do_cleanup(mirrorbase, subdir, options):
                     os.unlink(mirrorfile)
                 continue
             statinfo = os.stat(mirrorfile)
-            mtime = date.fromtimestamp(statinfo[stat.ST_MTIME])
+            mtime = date.fromtimestamp(statinfo[whichtime])
             if now < mtime:
-                log.warn('Modification time for %s (%s) ' +
+                log.warn('%s time for %s (%s) ' +
                          'is later than today (%s)',
+                         "Modification" if options.touch else "Access",
                          os.path.join(dirpath, filename), mtime.isoformat(),
                          now.isoformat())
                 continue
             if now - mtime > prune_age:
-                log.debug(1, '%s is old (mtime %s)', mirrorfile,
-                          mtime.isoformat())
+                log.debug(1, '%s is old (%stime %s)', mirrorfile,
+                          'm' if options.touch else 'a', mtime.isoformat())
                 removal_count += 1
                 if options.dry_run:
                     log.plain('rm -f %s', mirrorfile)
@@ -125,10 +127,12 @@ Updates a shared-state mirror after a build.  Two modes of operation:
     * copies sstate-* packages that were created during the build to
       the mirror location
     * touches sstate-* packages in the mirror location that were used
-      during the build (to update the modification time)
+      during the build (optionally, to update the modification time)
   Clean mode:
     * removes sstate-* packages from the mirror directory that exceed
-      a specified age and were not used in the build
+      a specified age and were not used in the build.  Based on
+      atime, unless --touch is specified, in which case it is based
+      on mtime.
 
 Run this tool in update mode after each build, or each sub-build in a
 set of related builds comprising a single build run.  Once a build run
@@ -147,7 +151,7 @@ packages.
                       action='count', dest='debug', default=0)
     parser.add_option('-v', '--verbose', help='verbose output',
                       action='store_true', dest='verbose')
-    parser.add_option('-t', '--touch', help='touch symlinked files',
+    parser.add_option('-t', '--touch', help='touch symlinked files and use mtime for pruning checks',
                       action='store_true', dest='touch')
     parser.add_option('-n', '--dry-run',
                       help='display commands instead of executing them',
