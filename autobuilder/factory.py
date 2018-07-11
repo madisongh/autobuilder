@@ -188,6 +188,8 @@ class DistroBuild(util.BuildFactory):
                                                  util.Property('sstate_mirror')],
                                         name='clean_sstate_mirror',
                                         timeout=None,
+                                        doStepIf=lambda step: step.build.getProperty('skip_sstate_update') != 'yes',
+                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
                                         description=['Cleaning', 'sstate', 'mirror'],
                                         descriptionDone=['Cleaned', 'sstate', 'mirror']))
         self.addStep(steps.ShellCommand(command=['update-downloads',
@@ -302,6 +304,8 @@ class DistroImage(BuildFactory):
                                         descriptionDone=['Saved', 'buildhistory', 'data']))
         self.addStep(steps.ShellCommand(command=['update-sstate-mirror', '-v', '-s', 'sstate-cache',
                                                  util.Property('sstate_mirror')], workdir=util.Property('BUILDDIR'),
+                                        doStepIf=lambda step: step.build.getProperty('skip_sstate_update') != 'yes',
+                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
                                         name='UpdateSharedState', timeout=None,
                                         description=['Updating', 'shared-state', 'mirror'],
                                         descriptionDone=['Updated', 'shared-state', 'mirror']))
