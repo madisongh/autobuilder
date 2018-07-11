@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2017 by Matthew Madison
+# Copyright 2017-2018 by Matthew Madison
 # Distributed under license.
 
 import os
@@ -12,7 +12,7 @@ import autobuilder.utils.locks as locks
 from datetime import date, timedelta
 from autobuilder.utils.logutils import Log
 
-__version__ = '0.3.1'
+__version__ = '0.3.2'
 
 log = Log(__name__)
 
@@ -27,6 +27,7 @@ def do_cleanup(mirrorbase, options):
 
     Returns the number of files removed.
     """
+    whichtime = stat.ST_MTIME if options.touch else stat.ST_ATIME
     prune_age = timedelta(options.prune_age)
     now = date.today()
     removal_count = 0
@@ -49,16 +50,17 @@ def do_cleanup(mirrorbase, options):
                     os.unlink(mirrorfile)
                 continue
             statinfo = os.stat(mirrorfile)
-            mtime = date.fromtimestamp(statinfo[stat.ST_MTIME])
+            mtime = date.fromtimestamp(statinfo[whichtime])
             if now < mtime:
-                log.warn('Modification time for %s (%s) ' +
+                log.warn('%s time for %s (%s) ' +
                          'is later than today (%s)',
+                         "Modification" if options.touch else "Access",
                          os.path.join(dirpath, filename), mtime.isoformat(),
                          now.isoformat())
                 continue
             if now - mtime > prune_age:
-                log.debug(1, '%s is old (mtime %s)', mirrorfile,
-                          mtime.isoformat())
+                log.debug(1, '%s is old (%stime %s)', mirrorfile,
+                          'm' if options.touch else 'a', mtime.isoformat())
                 removal_count += 1
                 if options.dry_run:
                     log.plain('rm -f %s', mirrorfile)
@@ -91,6 +93,8 @@ def do_copy(cachebase, mirrorbase, options):
                 continue
             cachefile = os.path.join(dirpath, filename)
             if os.path.islink(cachefile):
+                if not options.touch:
+                    continue
                 mirrorfile = os.path.realpath(os.readlink(cachefile))
                 log.verbose('Updating modification time of %s', mirrorfile)
                 if options.dry_run:
@@ -133,10 +137,11 @@ Updates a downloads mirror after a build.  Two modes of operation:
   Update mode:
     * copies downloaded packages to the mirror location
     * touches downloaded packages in the mirror location that were used
-      during the build (to update the modification time)
+      during the build (optionally, to update the modification time)
   Clean mode:
     * removes downloaded packages from the mirror directory that exceed
-      a specified age and were not used in the build
+      a specified age and were not used in the build.  Based on atime,
+      unless --touch is specified, in which case it is based on mtime.
 
 Run this tool in update mode after each build, or each sub-build in a
 set of related builds comprising a single build run.  Once a build run
@@ -157,6 +162,8 @@ The '.done' marker files are not copied, nor are any source repositories
                       action='count', dest='debug', default=0)
     parser.add_option('-v', '--verbose', help='verbose output',
                       action='store_true', dest='verbose')
+    parser.add_option('-t', '--touch', help='touch symlinked files and use mtime for pruning checks',
+                      action='store_true', dest='touch')
     parser.add_option('-n', '--dry-run',
                       help='display commands instead of executing them',
                       action='store_true', dest='dry_run')
