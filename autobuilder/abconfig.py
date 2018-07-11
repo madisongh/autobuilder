@@ -301,6 +301,7 @@ class Distro(object):
                  release_buildname_variable='DISTRO_BUILDNAME',
                  dl_mirror=None,
                  skip_sstate_update=False,
+                 clean_downloads=True,
                  weekly_type=None,
                  push_type='__default__'):
         self.name = name
@@ -320,6 +321,7 @@ class Distro(object):
         self.dl_mirrorvar = dl_mirrorvar
         self.dl_mirror = dl_mirror
         self.skip_sstate_update = skip_sstate_update
+        self.clean_downloads = clean_downloads
         self.controllers = controllers
         self.buildnum_template = buildnum_template
         self.release_buildname_variable = release_buildname_variable
@@ -614,6 +616,7 @@ class AutobuilderConfig(object):
                      'dl_mirrorvar': d.dl_mirrorvar or "",
                      'dl_mirror': d.dl_mirror,
                      'skip_sstate_update': 'yes' if d.skip_sstate_update else 'no',
+                     'clean_downloads': 'yes' if d.clean_downloads else 'no',
                      'artifacts_path': d.artifacts_path,
                      'downloads_dir': d.dl_dir,
                      'project': self.repos[d.reponame].project,
