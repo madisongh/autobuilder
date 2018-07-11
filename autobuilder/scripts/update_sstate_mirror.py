@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2014 by Matthew Madison
+# Copyright 2014-2018 by Matthew Madison
 # Distributed under license.
 
 import os
@@ -12,7 +12,7 @@ import autobuilder.utils.locks as locks
 from datetime import date, timedelta
 from autobuilder.utils.logutils import Log
 
-__version__ = '0.2.3'
+__version__ = '0.2.4'
 
 log = Log(__name__)
 
@@ -64,8 +64,11 @@ def do_copy(cachebase, subdir, mirrorbase, options):
     """
     Walks the local sstate-cache tree, copying any shared-state packages
     created up to the corresponding location in the sstate-mirror tree,
-    and updating the modification time for any packages in the sstate-mirror
-    that are symlinked in the local cache (so we know they were just used).
+    and optionally updating the modification time for any packages in the
+    sstate-mirror that are symlinked in the local cache (so we know they
+    were just used).  This touching is only needed for builds off older
+    versions of OE-Core; more recent versions automatically do this as
+    part of shared-state staging.
 
     Returns the number of files copied.
     """
@@ -77,6 +80,8 @@ def do_copy(cachebase, subdir, mirrorbase, options):
                 continue
             cachefile = os.path.join(dirpath, filename)
             if os.path.islink(cachefile):
+                if not options.touch:
+                    continue
                 mirrorfile = os.path.realpath(os.readlink(cachefile))
                 log.verbose('Updating modification time of %s', mirrorfile)
                 if options.dry_run:
@@ -142,6 +147,8 @@ packages.
                       action='count', dest='debug', default=0)
     parser.add_option('-v', '--verbose', help='verbose output',
                       action='store_true', dest='verbose')
+    parser.add_option('-t', '--touch', help='touch symlinked files',
+                      action='store_true', dest='touch')
     parser.add_option('-n', '--dry-run',
                       help='display commands instead of executing them',
                       action='store_true', dest='dry_run')
