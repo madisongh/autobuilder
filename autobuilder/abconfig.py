@@ -246,9 +246,6 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         self.instance = reservations[0]
         instance_id, start_time = self._wait_for_instance()
         if None not in [instance_id, image.id, start_time]:
-            if len(self.tags) > 0:
-                self.instance.create_tags(Tags=[{"Key": k, "Value": v}
-                                                for k, v in self.tags.items()])
             return [instance_id, image.id, start_time]
         else:
             self.failed_to_start(self.instance.id, self.instance.state['Name'])
