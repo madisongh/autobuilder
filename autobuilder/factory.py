@@ -10,6 +10,7 @@ from buildbot.process.factory import BuildFactory
 import buildbot.status.builder as bbres
 from autobuilder import settings
 
+
 ENV_VARS = {'PATH': util.Property('PATH'),
             'BB_ENV_EXTRAWHITE': util.Property('BB_ENV_EXTRAWHITE'),
             'BUILDDIR': util.Property('BUILDDIR')
@@ -82,13 +83,7 @@ def extract_env_vars(rc, stdout, stderr):
 
 def build_tag(props):
     return '%s-%04d' % (props.getProperty('datestamp'),
-                        props.getProperty('main_buildnumber') or props.getProperty('buildnumber'))
-
-
-# noinspection PyUnusedLocal
-@util.renderer
-def build_datestamp(props):
-    return time.strftime('%Y%m%d')
+                        props.getProperty('buildnumber'))
 
 
 def build_output_path(props):
@@ -155,54 +150,6 @@ def save_history_cmdseq(props):
     return ['bash', '-c', cmd]
 
 
-class DistroBuild(util.BuildFactory):
-    def __init__(self, distro, repos):
-        util.BuildFactory.__init__(self)
-        self.addStep(steps.SetProperty(property='datestamp',
-                                       value=build_datestamp,
-                                       name='SetDateStamp',
-                                       description=['Setting', 'date', 'stamp'],
-                                       descriptionDone=['Set', 'date', 'stamp']))
-        repo = repos[distro.reponame]
-        self.addStep(steps.Git(repourl=repo.uri,
-                               branch=distro.branch,
-                               mode=('full' if repo.submodules else 'incremental'),
-                               method='clobber',
-                               codebase=distro.reponame,
-                               workdir=os.path.join('sources', distro.name,
-                                                    distro.reponame)))
-        for otype in distro.host_oses:
-            schedulers = [distro.name + '-' + imgset.name + '-' + otype
-                          for imgset in distro.targets]
-            trigger_props = {'datestamp': util.Property('datestamp'),
-                             'main_buildnumber': util.Property('buildnumber'),
-                             'buildtype': util.Property('buildtype'),
-                             'primary_hostos': otype == distro.host_oses[0],
-                             'save_artifacts': (otype == distro.host_oses[0])}
-            self.addStep(steps.Trigger(schedulerNames=schedulers,
-                                       waitForFinish=(otype == distro.host_oses[0]),
-                                       updateSourceStamp=True,
-                                       set_properties=trigger_props))
-        self.addStep(steps.ShellCommand(command=['update-sstate-mirror',
-                                                 '--mode=clean', '-v',
-                                                 util.Property('sstate_mirror')],
-                                        name='clean_sstate_mirror',
-                                        timeout=None,
-                                        doStepIf=lambda step: step.build.getProperty('skip_sstate_update') != 'yes',
-                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                        description=['Cleaning', 'sstate', 'mirror'],
-                                        descriptionDone=['Cleaned', 'sstate', 'mirror']))
-        self.addStep(steps.ShellCommand(command=['update-downloads',
-                                                 '--mode=clean', '-v',
-                                                 util.Property('dl_mirror')],
-                                        doStepIf=lambda step: step.build.getProperty('dl_mirror') is not None and step.build.getProperty('clean_downloads') == 'yes',
-                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                        name='clean_dl_mirror',
-                                        timeout=None,
-                                        description=['Cleaning', 'downloads', 'mirror'],
-                                        descriptionDone=['Cleaned', 'downloads', 'mirror']))
-
-
 class DistroImage(BuildFactory):
     def __init__(self, repourl, submodules=False, branch='master',
                  codebase='', imagedict=None, sdkmachines=None,
@@ -241,11 +188,6 @@ class DistroImage(BuildFactory):
                                                 name='%s_%s' % (imagedict[tgt], tgt),
                                                 description=['Building', imagedict[tgt], '(' + tgt + ')'],
                                                 descriptionDone=['Built', imagedict[tgt], '(' + tgt + ')']))
-                self.addStep(steps.ShellCommand(command=['move-images'], env=tgtenv,
-                                                workdir=util.Property('BUILDDIR'), timeout=None,
-                                                name='MoveImages-%s' % tgt,
-                                                description=['Moving', 'images', 'for', tgt],
-                                                descriptionDone=['Moved', 'images', 'for', tgt]))
 
         # Build the SDK(s)
 
