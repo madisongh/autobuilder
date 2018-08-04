@@ -82,6 +82,10 @@ class Log:
         Logs output only when the current debug level
         is >= the level specified in the call.
         """
+        try:
+            basestring
+        except NameError:
+            basestring = str
         if isinstance(level, basestring):
             args = (level,) + args
             level = 1
