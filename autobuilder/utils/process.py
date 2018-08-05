@@ -24,6 +24,10 @@ class CmdError(RuntimeError):
         self.msg = msg
 
     def __str__(self):
+        try:
+            basestring
+        except NameError:
+            basestring = str
         if not isinstance(self.command, basestring):
             cmd = subprocess.list2cmdline(self.command)
         else:
