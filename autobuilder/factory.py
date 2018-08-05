@@ -59,7 +59,7 @@ def sdk_stamp(props):
     if _get_btinfo(props).production_release:
         return '--no-stamp'
     else:
-        return '--date-stamp=' + props.getProperty('datestamp')
+        return '--date-stamp=' + (props.getProperty('datestamp') or time.strftime('%Y%m%d'))
 
 
 @util.renderer
@@ -82,7 +82,7 @@ def extract_env_vars(rc, stdout, stderr):
 
 
 def build_tag(props):
-    return '%s-%04d' % (props.getProperty('datestamp'),
+    return '%s-%04d' % (props.getProperty('datestamp') or time.strftime('%Y%m%d'),
                         props.getProperty('buildnumber'))
 
 

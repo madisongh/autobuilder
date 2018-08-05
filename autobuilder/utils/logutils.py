@@ -77,6 +77,7 @@ class Log:
         """
         self.mylog.log(logging.INFO - 1, *args)
 
+    # noinspection PyUnboundLocalVariable
     def debug(self, level, *args):
         """
         Logs output only when the current debug level

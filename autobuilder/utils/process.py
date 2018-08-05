@@ -23,6 +23,7 @@ class CmdError(RuntimeError):
         self.command = command
         self.msg = msg
 
+    # noinspection PyUnboundLocalVariable
     def __str__(self):
         try:
             basestring
