@@ -1,0 +1,11 @@
+
+
+{% for c in changes %}
+{{ c['revlink'] }}: {{ c['author'] }}
+    {{ c['comments'] }}
+  Files changed:
+{%- for f in c['files'] %}
+        {{ f }}
+{%- endfor %}
+
+{% endfor %}

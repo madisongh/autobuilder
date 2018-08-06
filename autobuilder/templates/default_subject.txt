@@ -1,0 +1,1 @@
+{%- if buildername == 'whole buildset' -%}{{ build['properties']['scheduler'][0] }}: {{ buildset_status_detected }}{% else %}{{ buildername }} build {{ build['number'] }}: {{ status_detected }}{% endif %}

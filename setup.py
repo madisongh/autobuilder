@@ -15,6 +15,10 @@ setup(
             'autorev-report = autobuilder.scripts.autorev_report:main'
         ]
     },
+    include_package_data=True,
+    package_data={
+        'autobuilder': ['templates/*.txt']
+    },
     install_requires=['buildbot>=1.1.0',
                       'boto3', 'botocore',
                       'twisted']
