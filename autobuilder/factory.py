@@ -29,7 +29,7 @@ def build_sdk(props):
 
 
 def install_sdk(props):
-    return props.getProperty('primary_hostos') and _get_btinfo(props).install_sdk
+    return _get_btinfo(props).install_sdk
 
 
 def is_release_build(props):
@@ -231,8 +231,7 @@ class DistroImage(BuildFactory):
 
         self.addStep(steps.ShellCommand(command=copy_artifacts_cmdseq, workdir=util.Property('BUILDDIR'),
                                         name='CopyArtifacts', timeout=None,
-                                        doStepIf=lambda step: (step.build.getProperty('save_artifacts') and
-                                                               step.build.getProperty('artifacts') != ''),
+                                        doStepIf=lambda step: step.build.getProperty('artifacts') != '',
                                         hideStepIf=lambda results, step: results == bbres.SKIPPED,
                                         description=['Copying', 'artifacts', 'to', 'binary', 'repo'],
                                         descriptionDone=['Copied', 'artifacts', 'to', 'binary', 'repo']))

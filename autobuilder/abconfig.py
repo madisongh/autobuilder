@@ -57,7 +57,7 @@ class Distro(object):
     def __init__(self, name, reponame, branch, email, path,
                  dldir=None, ssmirror=None,
                  targets=None, sdkmachines=None,
-                 host_oses=None, setup_script='./setup-env', repotimer=300,
+                 setup_script='./setup-env', repotimer=300,
                  artifacts=None,
                  sstate_mirrorvar='SSTATE_MIRRORS = "file://.* file://%s/PATH"',
                  dl_mirrorvar=None,
@@ -77,7 +77,6 @@ class Distro(object):
         self.sstate_mirror = ssmirror
         self.targets = targets
         self.sdkmachines = sdkmachines
-        self.host_oses = host_oses
         self.setup_script = setup_script
         self.repotimer = repotimer
         self.artifacts = artifacts
@@ -116,10 +115,6 @@ class Distro(object):
                                        branch=util.FixedParameter(name='branch', default=self.branch),
                                        project=util.FixedParameter(name='project',
                                                                    default=repos[self.reponame].project))]
-
-    def set_host_oses(self, default_oses):
-        if self.host_oses is None:
-            self.host_oses = default_oses
 
 
 class AutobuilderWorker(object):
@@ -234,47 +229,35 @@ class AutobuilderConfig(object):
         if name in settings.settings_dict():
             raise RuntimeError('Autobuilder config {} already exists'.format(name))
         self.name = name
-        ostypes = set()
         self.workers = []
         self.worker_cfgs = {}
-        wnames = {}
-        ostypes |= set(workers.keys())
-        for ostype in workers:
-            if ostype not in wnames.keys():
-                wnames[ostype] = []
-            for w in workers[ostype]:
-                if isinstance(w, AutobuilderEC2Worker):
-                    self.workers.append(MyEC2LatentWorker(name=w.name,
-                                                          password=w.password,
-                                                          max_builds=1,
-                                                          instance_type=w.ec2params.instance_type,
-                                                          ami=w.ec2params.ami,
-                                                          keypair_name=w.ec2params.keypair,
-                                                          instance_profile_name=w.ec2params.instance_profile_name,
-                                                          security_group_ids=w.ec2params.secgroup_ids,
-                                                          region=w.ec2params.region,
-                                                          subnet_id=w.ec2params.subnet,
-                                                          user_data=w.userdata(),
-                                                          elastic_ip=w.ec2params.elastic_ip,
-                                                          tags=w.ec2tags,
-                                                          block_device_map=w.ec2_dev_mapping))
-                else:
-                    self.workers.append(worker.Worker(w.name, w.password, max_builds=1))
-                self.worker_cfgs[w.name] = w
-                wnames[ostype].append(w.name)
+        for w in workers:
+            if isinstance(w, AutobuilderEC2Worker):
+                self.workers.append(MyEC2LatentWorker(name=w.name,
+                                                      password=w.password,
+                                                      max_builds=1,
+                                                      instance_type=w.ec2params.instance_type,
+                                                      ami=w.ec2params.ami,
+                                                      keypair_name=w.ec2params.keypair,
+                                                      instance_profile_name=w.ec2params.instance_profile_name,
+                                                      security_group_ids=w.ec2params.secgroup_ids,
+                                                      region=w.ec2params.region,
+                                                      subnet_id=w.ec2params.subnet,
+                                                      user_data=w.userdata(),
+                                                      elastic_ip=w.ec2params.elastic_ip,
+                                                      tags=w.ec2tags,
+                                                      block_device_map=w.ec2_dev_mapping))
+            else:
+                self.workers.append(worker.Worker(w.name, w.password, max_builds=1))
+            self.worker_cfgs[w.name] = w
 
-        self.ostypes = sorted(ostypes)
-        self.worker_names = {}
-        for ostype in self.ostypes:
-            self.worker_names[ostype] = sorted(wnames[ostype])
+        self.worker_names = [w.name for w in workers]
 
         self.repos = repos
         self.distros = distros
         self.distrodict = {d.name: d for d in self.distros}
         for d in self.distros:
-            d.set_host_oses(self.ostypes)
-            d.builder_names = [d.name + '-' + imgset.name + '-' + otype for imgset in d.targets for otype in
-                               d.host_oses]
+            d.builder_names = [d.name + '-' + imgset.name for imgset in d.targets]
         all_builder_names = []
         for d in self.distros:
             all_builder_names += d.builder_names
@@ -372,11 +355,9 @@ class AutobuilderConfig(object):
                      'buildnum_template': d.buildnum_template,
                      'release_buildname_variable': d.release_buildname_variable}
             repo = self.repos[d.reponame]
-            b += [BuilderConfig(name=d.name + '-' + imgset.name + '-' + otype,
-                                workernames=self.worker_names[otype],
-                                properties=utils.dict_merge(props,
-                                                            {'primary_hostos': otype == d.host_oses[0],
-                                                             'save_artifacts': otype == d.host_oses[0]}),
+            b += [BuilderConfig(name=d.name + '-' + imgset.name,
+                                workernames=self.worker_names,
+                                properties=props.copy(),
                                 factory=factory.DistroImage(repourl=repo.uri,
                                                             submodules=repo.submodules,
                                                             branch=d.branch,
@@ -384,5 +365,5 @@ class AutobuilderConfig(object):
                                                             imagedict=imgset.images,
                                                             sdkmachines=d.sdkmachines,
                                                             sdktargets=imgset.sdkimages))
-                    for imgset in d.targets for otype in d.host_oses]
+                  for imgset in d.targets]
         return b
