@@ -368,7 +368,7 @@ class AutobuilderConfig(object):
             repo = self.repos[d.reponame]
             b += [BuilderConfig(name=d.name + '-' + imgset.name,
                                 workernames=self.worker_names,
-                                properties=props.copy(),
+                                properties=utils.dict_merge(props, {'imageset': imgset.name}),
                                 factory=factory.DistroImage(repourl=repo.uri,
                                                             submodules=repo.submodules,
                                                             branch=d.branch,

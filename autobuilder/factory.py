@@ -10,7 +10,6 @@ from buildbot.process.factory import BuildFactory
 import buildbot.status.builder as bbres
 from autobuilder import settings
 
-
 ENV_VARS = {'PATH': util.Property('PATH'),
             'BB_ENV_EXTRAWHITE': util.Property('BB_ENV_EXTRAWHITE'),
             'BUILDDIR': util.Property('BUILDDIR')
@@ -87,8 +86,8 @@ def build_tag(props):
 
 
 def build_output_path(props):
-    return '%s/%s' % (props.getProperty('artifacts_path'),
-                      build_tag(props))
+    return '%s/%s/%s' % (props.getProperty('artifacts_path'), props.getProperty('imageset'),
+                         build_tag(props))
 
 
 def worker_extraconfig(props):
