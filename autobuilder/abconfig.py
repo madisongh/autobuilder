@@ -68,7 +68,8 @@ class Distro(object):
                  skip_sstate_update=False,
                  clean_downloads=True,
                  weekly_type=None,
-                 push_type='__default__'):
+                 push_type='__default__',
+                 extra_config=None):
         self.name = name
         self.reponame = reponame
         self.branch = branch
@@ -104,6 +105,7 @@ class Distro(object):
             self.push_type = push_type if push_type != '__default__' else self.default_buildtype
         else:
             self.push_type = None
+        self.extra_config = extra_config or ''
 
     def codebases(self, repos):
         cbdict = {self.reponame: {'repository': repos[self.reponame].uri}}
@@ -361,7 +363,8 @@ class AutobuilderConfig(object):
                      'autobuilder': self.name,
                      'distro': d.name,
                      'buildnum_template': d.buildnum_template,
-                     'release_buildname_variable': d.release_buildname_variable}
+                     'release_buildname_variable': d.release_buildname_variable,
+                     'extraconf': d.extra_config}
             repo = self.repos[d.reponame]
             b += [BuilderConfig(name=d.name + '-' + imgset.name,
                                 workernames=self.worker_names,

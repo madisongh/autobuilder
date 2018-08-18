@@ -116,6 +116,9 @@ def make_autoconf(props):
         elif props.getProperty('sstate_mirror') is not None:
             result.append(props.getProperty('sstate_mirrorvar') % props.getProperty('sstate_mirror'))
     result.append('BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"')
+    extraconfig = props.getProperty('extraconf')
+    if len(extraconfig) > 0:
+        result.append('\n' + extraconfig)
     extraconfig = worker_extraconfig(props)
     if len(extraconfig) > 0:
         result.append('\n' + extraconfig)
