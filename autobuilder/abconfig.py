@@ -5,6 +5,7 @@ import os
 import string
 import time
 from random import SystemRandom
+from twisted.internet import defer
 from twisted.python import log
 from buildbot.plugins import changes, schedulers, util, worker
 from buildbot.www.hooks.github import GitHubEventHandler
@@ -224,6 +225,13 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         return changeset, 'git'
 
 
+class AutobuilderForceScheduler(schedulers.ForceScheduler):
+    # noinspection PyUnusedLocal
+    @defer.inlineCallbacks
+    def computeBuilderNames(self, builderNames=None, builderid=None):
+        yield defer.returnValue(self.builderNames)
+
+
 class AutobuilderConfig(object):
     def __init__(self, name, workers, repos, distros):
         if name in settings.settings_dict():
@@ -316,7 +324,7 @@ class AutobuilderConfig(object):
                                                      default=d.default_buildtype),
                           util.FixedParameter(name='datestamp',
                                               default=str(time.strftime("%Y%m%d")))]
-            s.append(schedulers.ForceScheduler(name=d.name + '-force',
+            s.append(AutobuilderForceScheduler(name=d.name + '-force',
                                                codebases=d.codebaseparamlist(self.repos),
                                                properties=forceprops,
                                                builderNames=d.builder_names))
