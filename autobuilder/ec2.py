@@ -27,6 +27,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         if tags is None:
             tags = {}
 
+        # noinspection PyCallByClass
         AbstractLatentWorker.__init__(self, name, password, **kwargs)
 
         if security_name and subnet_id:

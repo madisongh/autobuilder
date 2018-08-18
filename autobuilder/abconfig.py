@@ -228,7 +228,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
 
 
 class AutobuilderForceScheduler(schedulers.ForceScheduler):
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,PyPep8Naming,PyPep8Naming
     @defer.inlineCallbacks
     def computeBuilderNames(self, builderNames=None, builderid=None):
         yield defer.returnValue(self.builderNames)
