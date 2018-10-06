@@ -163,6 +163,7 @@ class DistroImage(BuildFactory):
                  codebase='', imagedict=None, sdkmachines=None,
                  sdktargets=None):
         BuildFactory.__init__(self)
+        self.addStep(steps.SetProperty(property='datestamp', value=datestamp))
         self.addStep(steps.Git(repourl=repourl, submodules=submodules,
                                branch=branch, codebase=codebase,
                                mode=('full' if submodules else 'incremental'),
@@ -176,7 +177,6 @@ class DistroImage(BuildFactory):
                     'fi; . %(prop:setup_script)s; printenv'
         # Setup steps
 
-        self.addStep(steps.SetProperty(property='datestamp', value=datestamp))
         self.addStep(steps.RemoveDirectory('build/build', name='cleanup',
                                            description=['Removing', 'old', 'build', 'directory'],
                                            descriptionDone=['Removed', 'old', 'build', 'directory']))
