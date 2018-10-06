@@ -152,6 +152,12 @@ def save_history_cmdseq(props):
     return ['bash', '-c', cmd]
 
 
+# noinspection PyUnusedLocal
+@util.renderer
+def datestamp(props):
+    return str(time.strftime("%Y%m%d"))
+
+
 class DistroImage(BuildFactory):
     def __init__(self, repourl, submodules=False, branch='master',
                  codebase='', imagedict=None, sdkmachines=None,
@@ -170,6 +176,7 @@ class DistroImage(BuildFactory):
                     'fi; . %(prop:setup_script)s; printenv'
         # Setup steps
 
+        self.addStep(steps.SetProperty(property='datestamp', value=datestamp))
         self.addStep(steps.RemoveDirectory('build/build', name='cleanup',
                                            description=['Removing', 'old', 'build', 'directory'],
                                            descriptionDone=['Removed', 'old', 'build', 'directory']))
