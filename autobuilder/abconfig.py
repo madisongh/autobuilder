@@ -198,6 +198,12 @@ def codebasemap_from_github_payload(payload):
     return get_project_for_url(payload['repository']['html_url'])
 
 
+# noinspection PyUnusedLocal
+@util.renderer
+def datestamp(props):
+    return str(time.strftime("%Y%m%d"))
+
+
 class AutobuilderGithubEventHandler(GitHubEventHandler):
     # noinspection PyMissingConstructor
     def __init__(self, secret, strict, codebase=None, **kwargs):
@@ -311,7 +317,7 @@ class AutobuilderConfig(object):
                                               branch=d.branch, codebase=d.reponame,
                                               category='push')
                 props = {'buildtype': d.push_type,
-                         'datestamp': str(time.strftime("%Y%m%d"))}
+                         'datestamp': datestamp}
                 s.append(schedulers.SingleBranchScheduler(name=d.name,
                                                           change_filter=md_filter,
                                                           treeStableTimer=d.repotimer,
@@ -325,7 +331,7 @@ class AutobuilderConfig(object):
                                                      choices=[bt.name for bt in d.buildtypes],
                                                      default=d.default_buildtype),
                           util.FixedParameter(name='datestamp',
-                                              default=str(time.strftime("%Y%m%d")))]
+                                              default=datestamp)]
             s.append(AutobuilderForceScheduler(name=d.name + '-force',
                                                codebases=d.codebaseparamlist(self.repos),
                                                properties=forceprops,
@@ -334,7 +340,7 @@ class AutobuilderConfig(object):
                 slot = settings.get_weekly_slot()
                 s.append(schedulers.Nightly(name=d.name + '-' + 'weekly',
                                             properties={'buildtype': d.weekly_type,
-                                                        'datestamp': str(time.strftime("%Y%m%d"))},
+                                                        'datestamp': datestamp},
                                             codebases=d.codebases(self.repos),
                                             createAbsoluteSourceStamps=True,
                                             builderNames=d.builder_names,

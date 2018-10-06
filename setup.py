@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='autobuilder',
-    version='1.0.0',
+    version='1.0.1',
     packages=find_packages(),
     license='MIT',
     author='Matt Madison',
@@ -19,13 +19,13 @@ setup(
     package_data={
         'autobuilder': ['templates/*.txt']
     },
-    install_requires=['buildbot[tls]>=1.3.0',
-                      'buildbot-worker>=1.3.0',
-                      'buildbot-www>=1.3.0',
-                      'buildbot-console-view>=1.3.0',
-                      'buildbot-grid-view>=1.3.0',
-                      'buildbot-waterfall-view>=1.3.0'
-                      'buildbot-badges>=1.3.0',
+    install_requires=['buildbot[tls]>=1.4.0',
+                      'buildbot-worker>=1.4.0',
+                      'buildbot-www>=1.4.0',
+                      'buildbot-console-view>=1.4.0',
+                      'buildbot-grid-view>=1.4.0',
+                      'buildbot-waterfall-view>=1.4.0'
+                      'buildbot-badges>=1.4.0',
                       'boto3', 'botocore',
                       'twisted']
 )
