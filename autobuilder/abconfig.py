@@ -377,6 +377,9 @@ class AutobuilderConfig(object):
         for d in self.distros:
             all_builder_names += d.builder_names
         self.all_builder_names = sorted(all_builder_names)
+        self.non_pr_scheduler_names = sorted([d.name for d in self.distros])
+        self.pr_scheduler_names = sorted([d.name + '-pr' for d in self.distros if d.pullrequest_type])
+        self.all_scheduler_names = sorted(self.non_pr_scheduler_names + self.pr_scheduler_names)
         self.codebasemap = {self.repos[r].uri: r for r in self.repos}
         settings.set_config_for_builder(name, self)
 
