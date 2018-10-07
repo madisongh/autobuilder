@@ -14,7 +14,7 @@ from autobuilder import factory, settings
 from autobuilder.ec2 import MyEC2LatentWorker
 from autobuilder import utils
 
-DEFAULT_BLDTYPES = ['ci', 'no-sstate', 'snapshot', 'release']
+DEFAULT_BLDTYPES = ['ci', 'no-sstate', 'snapshot', 'release', 'pr']
 RNG = SystemRandom()
 default_svp = {'name': '/dev/xvdf', 'size': 200,
                'type': 'standard', 'iops': None}
@@ -23,15 +23,18 @@ default_svp = {'name': '/dev/xvdf', 'size': 200,
 class Buildtype(object):
     def __init__(self, name, build_sdk=False, install_sdk=False,
                  sdk_root=None, current_symlink=False, defaulttype=False,
-                 production_release=False, disable_sstate=False):
+                 pullrequesttype=False, production_release=False,
+                 disable_sstate=False, extra_config=None):
         self.name = name
         self.build_sdk = build_sdk
         self.install_sdk = install_sdk
         self.sdk_root = sdk_root
         self.current_symlink = current_symlink
         self.defaulttype = defaulttype
+        self.pullrequesttype = pullrequesttype
         self.production_release = production_release
         self.disable_sstate = disable_sstate
+        self.extra_config = extra_config or ''
 
 
 class Repo(object):
@@ -69,6 +72,7 @@ class Distro(object):
                  clean_downloads=True,
                  weekly_type=None,
                  push_type='__default__',
+                 pullrequest_type=None,
                  extra_config=None):
         self.name = name
         self.reponame = reponame
@@ -105,6 +109,11 @@ class Distro(object):
             self.push_type = push_type if push_type != '__default__' else self.default_buildtype
         else:
             self.push_type = None
+        if pullrequest_type:
+            prtypelist = [bt.name for bt in self.buildtypes if bt.pullrequesttype]
+            if len(prtypelist) != 1:
+                raise RuntimeError('Must set exactly one PR build type for %s' % self.name)
+            self.pullrequest_type = prtypelist[0]
         self.extra_config = extra_config or ''
 
     def codebases(self, repos):
@@ -226,6 +235,59 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
 
         return changeset, 'git'
 
+    @defer.inlineCallbacks
+    def handle_pull_request(self, payload, event):
+        changes = []
+        number = payload['number']
+        refname = 'refs/pull/{}/{}'.format(number, self.pullrequest_ref)
+        commits = payload['pull_request']['commits']
+        title = payload['pull_request']['title']
+        comments = payload['pull_request']['body']
+        repo_full_name = payload['repository']['full_name']
+        head_sha = payload['pull_request']['head']['sha']
+
+        log.msg('Processing GitHub PR #{}'.format(number),
+                logLevel=logging.DEBUG)
+
+        head_msg = yield self._get_commit_msg(repo_full_name, head_sha)
+        if self._has_skip(head_msg):
+            log.msg("GitHub PR #{}, Ignoring: "
+                    "head commit message contains skip pattern".format(number))
+            defer.returnValue(([], 'git'))
+
+        action = payload.get('action')
+        if action not in ('opened', 'reopened', 'synchronize'):
+            log.msg("GitHub PR #{} {}, ignoring".format(number, action))
+            defer.returnValue((changes, 'git'))
+
+        properties = self.extractProperties(payload['pull_request'])
+        properties.update({'event': event, 'prnumber': number})
+        change = {
+            'revision': payload['pull_request']['head']['sha'],
+            'when_timestamp': dateparse(payload['pull_request']['created_at']),
+            'branch': refname,
+            'revlink': payload['pull_request']['_links']['html']['href'],
+            'repository': payload['repository']['html_url'],
+            'project': get_project_for_url(payload['pull_request']['base']['repo']['html_url'],
+                                           default_if_not_found=payload['pull_request']['base']['repo']['full_name'])
+            'category': 'pull',
+            # TODO: Get author name based on login id using txgithub module
+            'author': payload['sender']['login'],
+            'comments': u'GitHub Pull Request #{0} ({1} commit{2})\n{3}\n{4}'.format(
+                number, commits, 's' if commits != 1 else '', title, comments),
+            'properties': properties,
+        }
+
+        if callable(self._codebase):
+            change['codebase'] = self._codebase(payload)
+        elif self._codebase is not None:
+            change['codebase'] = self._codebase
+
+        changes.append(change)
+
+        log.msg("Received {} changes from GitHub PR #{}".format(
+            len(changes), number))
+        defer.returnValue((changes, 'git'))
 
 class AutobuilderForceScheduler(schedulers.ForceScheduler):
     # noinspection PyUnusedLocal,PyPep8Naming,PyPep8Naming
@@ -309,9 +371,21 @@ class AutobuilderConfig(object):
             if d.push_type is not None:
                 md_filter = util.ChangeFilter(project=self.repos[d.reponame].project,
                                               branch=d.branch, codebase=d.reponame,
-                                              category='push')
+                                              category=['push'])
                 props = {'buildtype': d.push_type}
                 s.append(schedulers.SingleBranchScheduler(name=d.name,
+                                                          change_filter=md_filter,
+                                                          treeStableTimer=d.repotimer,
+                                                          properties=props,
+                                                          codebases=d.codebases(self.repos),
+                                                          createAbsoluteSourceStamps=True,
+                                                          builderNames=d.builder_names))
+            if d.pullrequest_type is not None:
+                md_filter = util.ChangeFilter(project=self.repos[d.reponame].project,
+                                              branch=d.branch, codebase=d.reponame,
+                                              category=['pull'])
+                props = {'buildtype': d.pullrequest_type}
+                s.append(schedulers.SingleBranchScheduler(name=d.name + '-pr',
                                                           change_filter=md_filter,
                                                           treeStableTimer=d.repotimer,
                                                           properties=props,
