@@ -114,6 +114,8 @@ class Distro(object):
             if len(prtypelist) != 1:
                 raise RuntimeError('Must set exactly one PR build type for %s' % self.name)
             self.pullrequest_type = prtypelist[0]
+        else:
+            self.pullrequest_type = None
         self.extra_config = extra_config or ''
 
     def codebases(self, repos):
