@@ -431,7 +431,6 @@ class AutobuilderConfig(object):
                 props = {'buildtype': d.pullrequest_type}
                 s.append(schedulers.SingleBranchScheduler(name=d.name + '-pr',
                                                           change_filter=md_filter,
-                                                          treeStableTimer=d.repotimer,
                                                           properties=props,
                                                           codebases=d.codebases(self.repos),
                                                           createAbsoluteSourceStamps=True,

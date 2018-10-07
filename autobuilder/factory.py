@@ -102,7 +102,7 @@ def worker_extraconfig(props):
     abcfg = settings.get_config_for_builder(props.getProperty('autobuilder'))
     wcfg = abcfg.worker_cfgs[props.getProperty('workername')]
     if wcfg:
-        return wcfg.conftext
+        return wcfg.conftext or ''
     return ''
 
 
