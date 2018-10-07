@@ -212,9 +212,9 @@ def codebasemap_from_github_payload(payload):
         url = payload['pull_request']['base']['repo']['html_url']
     else:
         url = payload['repository']['html_url']
-        log.msg('Using URL {} for codebase lookup'.format(url))
+    log.msg('Using URL {} for codebase lookup'.format(url))
     for abcfg in settings.settings_dict():
-        for repo in abcfg.repos:
+        for repo in settings.get_config_for_builder(abcfg).repos:
             log.msg('Checking repo {} URI {}'.format(repo.name, repo.uri))
             if url == repo.uri:
                 return repo.name
