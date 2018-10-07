@@ -4,6 +4,7 @@ Autobuilder configuration class.
 import os
 import string
 import time
+import logging
 from random import SystemRandom
 from twisted.internet import defer
 from twisted.python import log
