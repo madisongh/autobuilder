@@ -213,13 +213,16 @@ def codebasemap_from_github_payload(payload):
     else:
         url = payload['repository']['html_url']
     log.msg('Using URL {} for codebase lookup'.format(url))
+    reponame = ''
     for abcfg in settings.settings_dict():
-        for repo in settings.get_config_for_builder(abcfg).repos:
-            log.msg('Checking repo {} URI {}'.format(repo.name, repo.uri))
-            if url == repo.uri:
-                return repo.name
-    log.msg('could not find repo for {}'.format(url))
-    return ''
+        try:
+            repo = settings.get_config_for_builder(abcfg).codebasemap[url]
+            reponame = repo.name
+            break
+        except KeyError:
+            pass
+    log.msg('returning {} as code base'.format(reponame))
+    return reponame
 
 
 class AutobuilderGithubEventHandler(GitHubEventHandler):
