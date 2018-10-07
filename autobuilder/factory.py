@@ -183,12 +183,14 @@ class DistroImage(BuildFactory):
         self.addStep(steps.SetProperty(property='datestamp', value=datestamp))
         self.addStep(steps.Git(repourl=repourl, submodules=submodules,
                                branch=branch, codebase=codebase,
+                               name='git-checkout-{}'.format(branch),
                                mode=('full' if submodules else 'incremental'),
                                method='clobber',
                                doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
                                hideStepIf=lambda results, step: results == bbres.SKIPPED))
         self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
                                   branch=branch, codebase=codebase,
+                                  name='git-checkout-pullrequest-ref',
                                   mode=('full' if submodules else 'incremental'),
                                   method='clobber',
                                   doStepIf=lambda step: is_pull_request(step.build.getProperties()),
