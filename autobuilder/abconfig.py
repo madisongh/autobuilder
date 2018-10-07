@@ -6,6 +6,7 @@ import string
 import time
 import logging
 from random import SystemRandom
+from dateutil.parser import parse as dateparse
 from twisted.internet import defer
 from twisted.python import log
 from buildbot.plugins import changes, schedulers, util, worker
