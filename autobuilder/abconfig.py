@@ -212,17 +212,36 @@ def codebasemap_from_github_payload(payload):
         url = payload['pull_request']['base']['repo']['html_url']
     else:
         url = payload['repository']['html_url']
-    log.msg('Using URL {} for codebase lookup'.format(url))
     reponame = ''
     for abcfg in settings.settings_dict():
         try:
-            repo = settings.get_config_for_builder(abcfg).codebasemap[url]
-            reponame = repo.name
+            reponame = settings.get_config_for_builder(abcfg).codebasemap[url]
             break
         except KeyError:
             pass
-    log.msg('returning {} as code base'.format(reponame))
     return reponame
+
+
+def something_wants_pullrequests(payload):
+    if 'pull_request' not in payload:
+        log.msg('something_wants_pullrequests called for a non-PR?')
+        return False
+    url = payload['pull_request']['base']['repo']['html_url']
+    basebranch = payload['pull_request']['base']['ref']
+    for abcfg in settings.settings_dict():
+        cfg = settings.get_config_for_builder(abcfg)
+        try:
+            reponame = cfg.codebasemap[url]
+            for d in cfg.distros:
+                if cfg[d].reponame == reponame and cfg[d].branch == basebranch:
+                    log.msg('Found distro {} for repo {} and branch {}'.format(d, reponame, basebranch))
+                    if cfg[d].pullrequest_type:
+                        log.msg('Distro {} wants pull requests'.format(d))
+                        return True
+        except KeyError:
+            pass
+    log.msg('No distro found for url {}, base branch {}'.format(url, basebranch))
+    return False
 
 
 class AutobuilderGithubEventHandler(GitHubEventHandler):
@@ -277,6 +296,10 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         if action not in ('opened', 'reopened', 'synchronize'):
             log.msg("GitHub PR #{} {}, ignoring".format(number, action))
             defer.returnValue((pr_changes, 'git'))
+
+        if not something_wants_pullrequests(payload):
+            log.msg("GitHub PR#{}, Ignoring: no matching distro found".format(number))
+            defer.returnValue(([], 'git'))
 
         properties = self.extractProperties(payload['pull_request'])
         properties.update({'event': event, 'prnumber': number})
@@ -401,8 +424,9 @@ class AutobuilderConfig(object):
                                                           createAbsoluteSourceStamps=True,
                                                           builderNames=d.builder_names))
             if d.pullrequest_type is not None:
+                # No branch filter here - check is done in the event handler
                 md_filter = util.ChangeFilter(project=self.repos[d.reponame].project,
-                                              branch=d.branch, codebase=d.reponame,
+                                              codebase=d.reponame,
                                               category=['pull'])
                 props = {'buildtype': d.pullrequest_type}
                 s.append(schedulers.SingleBranchScheduler(name=d.name + '-pr',
