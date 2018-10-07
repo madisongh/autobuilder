@@ -232,11 +232,11 @@ def something_wants_pullrequests(payload):
         cfg = settings.get_config_for_builder(abcfg)
         try:
             reponame = cfg.codebasemap[url]
-            for d in cfg.distros:
-                if cfg.distros[d].reponame == reponame and cfg.distros[d].branch == basebranch:
-                    log.msg('Found distro {} for repo {} and branch {}'.format(d, reponame, basebranch))
-                    if cfg.distros[d].pullrequest_type:
-                        log.msg('Distro {} wants pull requests'.format(d))
+            for distro in cfg.distros:
+                if distro.reponame == reponame and distro.branch == basebranch:
+                    log.msg('Found distro {} for repo {} and branch {}'.format(distro.name, reponame, basebranch))
+                    if distro.pullrequest_type:
+                        log.msg('Distro {} wants pull requests'.format(distro.name))
                         return True
         except KeyError:
             pass
