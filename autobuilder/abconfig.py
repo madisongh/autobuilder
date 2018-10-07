@@ -237,7 +237,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
 
     @defer.inlineCallbacks
     def handle_pull_request(self, payload, event):
-        changes = []
+        pr_changes = []
         number = payload['number']
         refname = 'refs/pull/{}/{}'.format(number, self.pullrequest_ref)
         commits = payload['pull_request']['commits']
@@ -258,7 +258,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         action = payload.get('action')
         if action not in ('opened', 'reopened', 'synchronize'):
             log.msg("GitHub PR #{} {}, ignoring".format(number, action))
-            defer.returnValue((changes, 'git'))
+            defer.returnValue((pr_changes, 'git'))
 
         properties = self.extractProperties(payload['pull_request'])
         properties.update({'event': event, 'prnumber': number})
@@ -269,7 +269,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
             'revlink': payload['pull_request']['_links']['html']['href'],
             'repository': payload['repository']['html_url'],
             'project': get_project_for_url(payload['pull_request']['base']['repo']['html_url'],
-                                           default_if_not_found=payload['pull_request']['base']['repo']['full_name'])
+                                           default_if_not_found=payload['pull_request']['base']['repo']['full_name']),
             'category': 'pull',
             # TODO: Get author name based on login id using txgithub module
             'author': payload['sender']['login'],
@@ -283,11 +283,12 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         elif self._codebase is not None:
             change['codebase'] = self._codebase
 
-        changes.append(change)
+        pr_changes.append(change)
 
         log.msg("Received {} changes from GitHub PR #{}".format(
-            len(changes), number))
-        defer.returnValue((changes, 'git'))
+            len(pr_changes), number))
+        defer.returnValue((pr_changes, 'git'))
+
 
 class AutobuilderForceScheduler(schedulers.ForceScheduler):
     # noinspection PyUnusedLocal,PyPep8Naming,PyPep8Naming

@@ -272,8 +272,8 @@ class DistroImage(BuildFactory):
 
         self.addStep(steps.ShellCommand(command=copy_artifacts_cmdseq, workdir=util.Property('BUILDDIR'),
                                         name='CopyArtifacts', timeout=None,
-                                        doStepIf=lambda step: not is_pull_request(step.build.getProperties()) and
-                                                              step.build.getProperty('artifacts') != '',
+                                        doStepIf=lambda step: (not is_pull_request(step.build.getProperties()) and
+                                                               step.build.getProperty('artifacts') != ''),
                                         hideStepIf=lambda results, step: results == bbres.SKIPPED,
                                         description=['Copying', 'artifacts', 'to', 'binary', 'repo'],
                                         descriptionDone=['Copied', 'artifacts', 'to', 'binary', 'repo']))
@@ -291,16 +291,16 @@ class DistroImage(BuildFactory):
                                         descriptionDone=['Saved', 'buildhistory', 'data']))
         self.addStep(steps.ShellCommand(command=['update-sstate-mirror', '-v', '-s', 'sstate-cache',
                                                  util.Property('sstate_mirror')], workdir=util.Property('BUILDDIR'),
-                                        doStepIf=lambda step: not is_pull_request(step.build.getProperties()) and
-                                                              step.build.getProperty('skip_sstate_update') != 'yes',
+                                        doStepIf=lambda step: (not is_pull_request(step.build.getProperties()) and
+                                                               step.build.getProperty('skip_sstate_update') != 'yes'),
                                         hideStepIf=lambda results, step: results == bbres.SKIPPED,
                                         name='UpdateSharedState', timeout=None,
                                         description=['Updating', 'shared-state', 'mirror'],
                                         descriptionDone=['Updated', 'shared-state', 'mirror']))
         self.addStep(steps.ShellCommand(command=['update-downloads', '-v', '-l', dl_dir,
                                                  util.Property('dl_mirror')], workdir=util.Property('BUILDDIR'),
-                                        doStepIf=lambda step: not is_pull_request(step.build.getProperties()) and
-                                                              step.build.getProperty('dl_mirror') is not None,
+                                        doStepIf=lambda step: (not is_pull_request(step.build.getProperties()) and
+                                                               step.build.getProperty('dl_mirror') is not None),
                                         hideStepIf=lambda results, step: results == bbres.SKIPPED,
                                         name='UpdateDownloads', timeout=None,
                                         description=['Updating', 'downloads', 'mirror'],
