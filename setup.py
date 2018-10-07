@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='autobuilder',
-    version='1.0.2',
+    version='1.0.3',
     packages=find_packages(),
     license='MIT',
     author='Matt Madison',
@@ -27,5 +27,6 @@ setup(
                       'buildbot-waterfall-view>=1.4.0'
                       'buildbot-badges>=1.4.0',
                       'boto3', 'botocore',
+                      'treq',
                       'twisted']
 )
