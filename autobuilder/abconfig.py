@@ -233,9 +233,9 @@ def something_wants_pullrequests(payload):
         try:
             reponame = cfg.codebasemap[url]
             for d in cfg.distros:
-                if cfg[d].reponame == reponame and cfg[d].branch == basebranch:
+                if cfg.distros[d].reponame == reponame and cfg.distros[d].branch == basebranch:
                     log.msg('Found distro {} for repo {} and branch {}'.format(d, reponame, basebranch))
-                    if cfg[d].pullrequest_type:
+                    if cfg.distros[d].pullrequest_type:
                         log.msg('Distro {} wants pull requests'.format(d))
                         return True
         except KeyError:
