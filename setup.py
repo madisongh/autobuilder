@@ -27,6 +27,6 @@ setup(
                       'buildbot-waterfall-view>=1.4.0'
                       'buildbot-badges>=1.4.0',
                       'boto3', 'botocore',
-                      'treq',
-                      'twisted']
+                      'treq', 'twisted',
+                      'python-dateutil']
 )

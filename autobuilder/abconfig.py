@@ -208,7 +208,11 @@ def get_project_for_url(repo_url, default_if_not_found=None):
 
 
 def codebasemap_from_github_payload(payload):
-    return get_project_for_url(payload['repository']['html_url'])
+    if 'pull_request' in payload:
+        url = payload['pull_request']['base']['repo']['html_url']
+    else:
+        url = payload['repository']['html_url']
+    return get_project_for_url(url)
 
 
 class AutobuilderGithubEventHandler(GitHubEventHandler):
