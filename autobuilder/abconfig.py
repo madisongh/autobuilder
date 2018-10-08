@@ -40,12 +40,11 @@ class Buildtype(object):
 
 
 class Repo(object):
-    def __init__(self, name, uri, pollinterval=None, project=None,
+    def __init__(self, name, uri, pollinterval=None,
                  submodules=False):
         self.name = name
         self.uri = uri
         self.pollinterval = pollinterval
-        self.project = project or name
         self.submodules = submodules
 
 
@@ -128,9 +127,7 @@ class Distro(object):
         return [util.CodebaseParameter(codebase=self.reponame,
                                        repository=util.FixedParameter(name='repository',
                                                                       default=repos[self.reponame].uri),
-                                       branch=util.FixedParameter(name='branch', default=self.branch),
-                                       project=util.FixedParameter(name='project',
-                                                                   default=repos[self.reponame].project))]
+                                       branch=util.FixedParameter(name='branch', default=self.branch))]
 
 
 class AutobuilderWorker(object):
@@ -199,12 +196,20 @@ class AutobuilderEC2Worker(AutobuilderWorker):
                'MASTER="{}"\n'.format(self.master_ip_address)
 
 
-def get_project_for_url(repo_url, default_if_not_found=None):
+def get_project_for_url(repo_url, branch):
     for abcfg in settings.settings_dict():
-        proj = settings.get_config_for_builder(abcfg).project_from_url(repo_url)
-        if proj is not None:
-            return proj
-    return default_if_not_found
+        cfg = settings.get_config_for_builder(abcfg)
+        try:
+            reponame = cfg.codebasemap[repo_url]
+            for distro in cfg.distros:
+                if distro.reponame == reponame and distro.branch == branch:
+                    log.msg('Found distro {} for repo {} and branch {}'.format(distro.name, reponame, branch))
+                    if distro.push_type:
+                        log.msg('Distro {} wants pushes'.format(distro.name))
+                        return distro.name
+        except KeyError:
+            pass
+    return None
 
 
 def codebasemap_from_github_payload(payload):
@@ -257,10 +262,14 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         # user = payload['pusher']['name']
         repo = payload['repository']['name']
         repo_url = payload['repository']['html_url']
-        # NOTE: what would be a reasonable value for project?
-        # project = request.args.get('project', [''])[0]
-        project = get_project_for_url(repo_url,
-                                      default_if_not_found=payload['repository']['full_name'])
+        ref = payload['ref']
+        if not ref.startswith('refs/heads/'):
+            log.msg('Ignoring non-branch push (ref: {})'.format(ref))
+            return [], 'git'
+        branch = ref.split('/')[-1]
+        project = get_project_for_url(repo_url, branch)
+        if project is None:
+            return {}, 'git'
 
         properties = self.extractProperties(payload)
         changeset = self._process_change(payload, user, repo, repo_url, project,
@@ -270,7 +279,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
 
         log.msg("Received {} changes from github".format(len(changeset)))
 
-        return changeset, 'git'
+        return {}, 'git'
 
     @defer.inlineCallbacks
     def handle_pull_request(self, payload, event):
@@ -310,7 +319,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
             'revlink': payload['pull_request']['_links']['html']['href'],
             'repository': payload['repository']['html_url'],
             'project': get_project_for_url(payload['pull_request']['base']['repo']['html_url'],
-                                           default_if_not_found=payload['pull_request']['base']['repo']['full_name']),
+                                           payload['pull_request']['base']['ref']),
             'category': 'pull',
             # TODO: Get author name based on login id using txgithub module
             'author': payload['sender']['login'],
@@ -387,11 +396,6 @@ class AutobuilderConfig(object):
     def codebase_generator(self, change_dict):
         return self.codebasemap[change_dict['repository']]
 
-    def project_from_url(self, repo_url):
-        try:
-            return self.repos[self.codebasemap[repo_url]].project
-        except KeyError:
-            return None
 
     @property
     def change_sources(self):
@@ -407,8 +411,7 @@ class AutobuilderConfig(object):
                                                  branches=sort(branches),
                                                  category='push',
                                                  pollinterval=self.repos[r].pollinterval,
-                                                 pollAtLaunch=True,
-                                                 project=self.repos[r].project))
+                                                 pollAtLaunch=True))
         return pollers
 
     @property
@@ -416,7 +419,7 @@ class AutobuilderConfig(object):
         s = []
         for d in self.distros:
             if d.push_type is not None:
-                md_filter = util.ChangeFilter(project=self.repos[d.reponame].project,
+                md_filter = util.ChangeFilter(project=d.name,
                                               branch=d.branch, codebase=d.reponame,
                                               category=['push'])
                 props = {'buildtype': d.push_type}
@@ -429,7 +432,7 @@ class AutobuilderConfig(object):
                                                           builderNames=d.builder_names))
             if d.pullrequest_type is not None:
                 # No branch filter here - check is done in the event handler
-                md_filter = util.ChangeFilter(project=self.repos[d.reponame].project,
+                md_filter = util.ChangeFilter(project=d.name,
                                               codebase=d.reponame,
                                               category=['pull'])
                 props = {'buildtype': d.pullrequest_type}
@@ -472,7 +475,7 @@ class AutobuilderConfig(object):
                      'clean_downloads': 'yes' if d.clean_downloads else 'no',
                      'artifacts_path': d.artifacts_path,
                      'downloads_dir': d.dl_dir,
-                     'project': self.repos[d.reponame].project,
+                     'project': d.name,
                      'repourl': self.repos[d.reponame].uri,
                      'branch': d.branch,
                      'setup_script': d.setup_script,
