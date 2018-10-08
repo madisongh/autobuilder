@@ -269,7 +269,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         branch = ref.split('/')[-1]
         project = get_project_for_url(repo_url, branch)
         if project is None:
-            return {}, 'git'
+            return [], 'git'
 
         properties = self.extractProperties(payload)
         changeset = self._process_change(payload, user, repo, repo_url, project,
@@ -279,7 +279,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
 
         log.msg("Received {} changes from github".format(len(changeset)))
 
-        return {}, 'git'
+        return changeset, 'git'
 
     @defer.inlineCallbacks
     def handle_pull_request(self, payload, event):
