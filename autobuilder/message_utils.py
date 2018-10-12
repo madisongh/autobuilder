@@ -12,7 +12,6 @@ def getChangesForSourceStamps(master, sslist):
     changelist = []
     for ss in sslist:
         changes = yield master.data.get(("sourcestamps", ss['ssid'], "changes"))
-        log.msg('CHANGES: %s' % changes)
         changelist += changes
     defer.returnValue(changelist)
 
@@ -50,7 +49,6 @@ class AutobuilderMessageFormatter(MessageFormatter):
         else:
             ctx['changes'] = []
         ctx['buildset_status_detected'] = self.getDetectedStatus(ctx['mode'], ctx['buildset']['results'], None)
-        log.msg("buildAdditionalContext: updated context=%s" % ctx)
 
 
 @defer.inlineCallbacks
