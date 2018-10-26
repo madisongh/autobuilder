@@ -43,6 +43,8 @@ def is_pull_request(props):
 def without_sstate(props):
     return _get_btinfo(props).disable_sstate
 
+def update_current_symlink(props):
+    return _get_btinfo(props).current_symlink
 
 @util.renderer
 def sdk_root(props):
@@ -55,7 +57,7 @@ def sdk_root(props):
 
 @util.renderer
 def sdk_use_current(props):
-    return '--update-current' if _get_btinfo(props).current_symlink else ''
+    return '--update-current' if update_current_symlink(props) else ''
 
 
 @util.renderer
@@ -93,9 +95,9 @@ def build_tag(props):
                         props.getProperty('buildnumber'))
 
 
-def build_output_path(props):
+def build_output_path(props, current_symlink=False):
     return '%s/%s/%s' % (props.getProperty('artifacts_path'), props.getProperty('imageset'),
-                         build_tag(props))
+                         'current' if current_symlink else build_tag(props))
 
 
 def worker_extraconfig(props):
@@ -147,6 +149,12 @@ def copy_artifacts_cmdseq(props):
     cmd += 'for d in ' + props.getProperty('artifacts') + '; '
     cmd += 'do if [ -d tmp/deploy/$d ]; then cp -R tmp/deploy/$d '
     cmd += build_output_path(props) + '; fi; done; fi'
+    return ['bash', '-c', cmd]
+
+
+@util.renderer
+def update_artifacts_current_symlink(props):
+    cmd = 'ln -snf ' + build_tag(props) + ' ' + build_output_path(props, current_symlink=True)
     return ['bash', '-c', cmd]
 
 
@@ -291,6 +299,12 @@ class DistroImage(BuildFactory):
                                         hideStepIf=lambda results, step: results == bbres.SKIPPED,
                                         description=['Saving', 'buildhistory', 'data'],
                                         descriptionDone=['Saved', 'buildhistory', 'data']))
+        self.addStep(steps.ShellCommand(command=update_artifacts_current_symlink, workdir=util.Property('BUILDDIR'),
+                                        name='UpdateCurrentSymnlink', timeout=None,
+                                        doStepIf=lambda step: update_current_symlink(step.build.getProperties()),
+                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
+                                        description=['Updating', 'current', 'symlink'],
+                                        descriptionDone=['Updated', 'current', 'symlink']))
         self.addStep(steps.ShellCommand(command=['update-sstate-mirror', '-v', '-s', 'sstate-cache',
                                                  util.Property('sstate_mirror')], workdir=util.Property('BUILDDIR'),
                                         doStepIf=lambda step: (not is_pull_request(step.build.getProperties()) and
