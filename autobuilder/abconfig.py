@@ -131,10 +131,18 @@ class Distro(object):
 
 
 class AutobuilderWorker(object):
-    def __init__(self, name, password, conftext=None):
+    def __init__(self, name, password, conftext=None, max_builds=1):
         self.name = name
         self.password = password
         self.conftext = conftext
+        self.max_builds = max_builds
+        if max_builds > 1:
+            threadconf = '\n'.join(['BB_NUMBER_THREADS = "${@oe.utils.cpu_count() / %d}"' % max_builds,
+                                    'PARALLEL_MAKE = "${@oe.utils.cpu_count() / %d}"' % max_builds]) + '\n'
+            if self.conftext:
+                self.conftext += threadconf
+            else:
+                self.conftext = threadconf
 
 
 class EC2Params(object):
@@ -160,10 +168,10 @@ class EC2Params(object):
 class AutobuilderEC2Worker(AutobuilderWorker):
     master_ip_address = os.getenv('MASTER_IP_ADDRESS')
 
-    def __init__(self, name, password, ec2params, conftext=None):
+    def __init__(self, name, password, ec2params, conftext=None, max_builds=1):
         if not password:
             password = ''.join(RNG.choice(string.ascii_letters + string.digits) for _ in range(16))
-        AutobuilderWorker.__init__(self, name, password, conftext)
+        AutobuilderWorker.__init__(self, name, password, conftext, max_builds)
         self.ec2params = ec2params
         self.ec2tags = ec2params.tags
         if self.ec2tags:
@@ -359,7 +367,7 @@ class AutobuilderConfig(object):
             if isinstance(w, AutobuilderEC2Worker):
                 self.workers.append(MyEC2LatentWorker(name=w.name,
                                                       password=w.password,
-                                                      max_builds=1,
+                                                      max_builds=w.max_builds,
                                                       instance_type=w.ec2params.instance_type,
                                                       ami=w.ec2params.ami,
                                                       keypair_name=w.ec2params.keypair,
@@ -372,7 +380,7 @@ class AutobuilderConfig(object):
                                                       tags=w.ec2tags,
                                                       block_device_map=w.ec2_dev_mapping))
             else:
-                self.workers.append(worker.Worker(w.name, w.password, max_builds=1))
+                self.workers.append(worker.Worker(w.name, w.password, max_builds=w.max_builds))
             self.worker_cfgs[w.name] = w
 
         self.worker_names = [w.name for w in workers]
