@@ -137,8 +137,8 @@ class AutobuilderWorker(object):
         self.conftext = conftext
         self.max_builds = max_builds
         if max_builds > 1:
-            threadconf = '\n'.join(['BB_NUMBER_THREADS = "${@oe.utils.cpu_count() / %d}"' % max_builds,
-                                    'PARALLEL_MAKE = "${@oe.utils.cpu_count() / %d}"' % max_builds]) + '\n'
+            threadconf = '\n'.join(['BB_NUMBER_THREADS = "${@oe.utils.cpu_count() // %d}"' % max_builds,
+                                    'PARALLEL_MAKE = "${int(@oe.utils.cpu_count() // %d}"' % max_builds]) + '\n'
             if self.conftext:
                 self.conftext += threadconf
             else:
