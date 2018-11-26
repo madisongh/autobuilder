@@ -189,6 +189,8 @@ class AutobuilderEC2Worker(AutobuilderWorker):
                 'VolumeSize': svp['size'],
                 'DeleteOnTermination': True
             }
+            if 'encrypted' in svp:
+                ebs['Encrypted'] = svp['encrypted']
             if svp['type'] == 'io1':
                 if svp['iops']:
                     ebs['Iops'] = svp['iops']
