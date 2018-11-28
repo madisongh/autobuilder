@@ -530,7 +530,7 @@ def nextEC2Worker(bldr, wfbs, br):
     :param br: BuildRequest object
     :return: WorkerForBuilder object
     """
-    import buildbot.worker.ec2
+    from buildbot.worker.ec2 import TERMINATED, PENDING, RUNNING
     candidates = [wfb for wfb in wfbs if wfb.isAvailable()]
     log.msg('nextEC2Worker: %d candidates: %s' % (len(candidates),
                                                   ','.join([wfb.worker.name for wfb in candidates])))
@@ -541,8 +541,8 @@ def nextEC2Worker(bldr, wfbs, br):
             if wfb.worker.instance:
                 statename = wfb.worker.instance.state['Name']
             else:
-                statename = ec2.TERMINATED
-            if statename in [ec2.PENDING, ec2.RUNNING]:
+                statename = TERMINATED
+            if statename in [PENDING, RUNNING]:
                 if wfb.worker.max_builds:
                     slots = wfb.worker.max_builds - len(active_slots(wfb.worker))
                     # If this worker is running and has available worker slots, bump
