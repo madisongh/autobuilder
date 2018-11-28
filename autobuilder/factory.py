@@ -43,8 +43,10 @@ def is_pull_request(props):
 def without_sstate(props):
     return _get_btinfo(props).disable_sstate
 
+
 def update_current_symlink(props):
     return _get_btinfo(props).current_symlink
+
 
 @util.renderer
 def sdk_root(props):

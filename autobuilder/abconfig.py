@@ -408,7 +408,6 @@ class AutobuilderConfig(object):
     def codebase_generator(self, change_dict):
         return self.codebasemap[change_dict['repository']]
 
-
     @property
     def change_sources(self):
         pollers = []
@@ -500,6 +499,7 @@ class AutobuilderConfig(object):
             repo = self.repos[d.reponame]
             b += [BuilderConfig(name=d.name + '-' + imgset.name,
                                 workernames=self.worker_names,
+                                nextWorker=nextEC2Worker,
                                 properties=utils.dict_merge(props, {'imageset': imgset.name}),
                                 factory=factory.DistroImage(repourl=repo.uri,
                                                             submodules=repo.submodules,
@@ -510,3 +510,57 @@ class AutobuilderConfig(object):
                                                             sdktargets=imgset.sdkimages))
                   for imgset in d.targets]
         return b
+
+
+def active_slots(w):
+    return [wfb for wfb in itervalues(w.workerforbuilders) if wfb.isBusy()]
+
+
+def nextEC2Worker(wfbs, br):
+    """
+    Called by BuildRequestDistributor to identify a worker to queue
+    a build to. Instead of using the default random selection provided
+    by buildbot, choose using the following algorithm.
+        - Prefer non-latent workers over latent workers
+        - Prefer running latent workers with available slots over non-running (even pending) ones.
+        - Prefer pending latent workers over those that are shut down or shutting down.
+        - Sort preferred latent workers based on number of available slots
+    :param wfbs: list of WorkerForBuilder objects
+    :param br: BuildRequest object
+    :return: WorkerForBuilder object
+    """
+    import buildbot.worker.ec2
+    candidates = [wfb for wfb in wfbs if wfb.isAvailable()]
+    log.msg('nextEC2Worker: %d candidates: %s' % (len(candidates),
+                                                  ','.join([wfb.worker.name for wfb in candidates])))
+    wdict = {}
+    realworkers = []
+    for wfb in candidates:
+        if wfb.worker is not None and isinstance(wfb.worker, MyEC2LatentWorker):
+            statename = wfb.worker.instance_state['Name']
+            if statename in [ec2.PENDING, ec2.RUNNING]:
+                if wfb.worker.max_builds:
+                    slots = wfb.worker.max_builds - len(active_slots(wfb.worker))
+                    # If this worker is running and has available worker slots, bump
+                    # its score so it gets chosen first.
+                    if slots > 0 and statename == ec2.RUNNING:
+                        slots += 100
+                    log.msg('nextEC2Worker:   worker %s score=%d' % (wfb.worker.name, slots))
+                    if slots in wdict.keys():
+                        wdict[slots].append(wfb)
+                    else:
+                        wdict[slots] = [wfb]
+            else:
+                if 0 in wdict.keys():
+                    wdict[0].append(wfb)
+                else:
+                    wdict[0] = [wfb]
+        else:
+            log.msg('nextEC2Worker:   non-latent worker: %s' % wfb.worker.name)
+            realworkers.append(wfb)
+    if len(realworkers) > 0:
+        log.msg('nextEC2Worker: chose (non-latent): %s' % realworkers[0].worker.name)
+        return realworkers[0]
+    best = sorted(wdict.keys(), reverse=True)[0]
+    log.msg('nextEC2Worker: chose: %s (score=%d)' % (wdict[best][0].worker.name, best))
+    return wdict[best][0]
