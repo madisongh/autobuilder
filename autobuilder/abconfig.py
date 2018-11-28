@@ -513,6 +513,7 @@ class AutobuilderConfig(object):
 
 
 def active_slots(w):
+    from future.utils import itervalues
     return [wfb for wfb in itervalues(w.workerforbuilders) if wfb.isBusy()]
 
 
@@ -531,6 +532,8 @@ def nextEC2Worker(bldr, wfbs, br):
     :return: WorkerForBuilder object
     """
     from buildbot.worker.ec2 import TERMINATED, PENDING, RUNNING
+    log.msg('nextEC2Worker: %d WorkerForBuilders: %s' % (len(wfbs),
+                                                         ','.join([wfb.worker.name for wfb in wfbs])))
     candidates = [wfb for wfb in wfbs if wfb.isAvailable()]
     log.msg('nextEC2Worker: %d candidates: %s' % (len(candidates),
                                                   ','.join([wfb.worker.name for wfb in candidates])))
