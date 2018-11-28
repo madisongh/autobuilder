@@ -2,12 +2,13 @@ import re
 import os
 from buildbot.plugins import worker
 from buildbot.worker import AbstractLatentWorker
+from buildbot.worker.ec2 import EC2LatentWorker
 import boto3
 import botocore
 from botocore.client import ClientError
 
 
-class MyEC2LatentWorker(worker.EC2LatentWorker):
+class MyEC2LatentWorker(EC2LatentWorker):
     def __init__(self, name, password, instance_type, ami=None,
                  valid_ami_owners=None, valid_ami_location_regex=None,
                  elastic_ip=None, identifier=None, secret_identifier=None,
