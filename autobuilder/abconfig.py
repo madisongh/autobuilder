@@ -550,7 +550,7 @@ def nextEC2Worker(bldr, wfbs, br):
                     slots = wfb.worker.max_builds - len(active_slots(wfb.worker))
                     # If this worker is running and has available worker slots, bump
                     # its score so it gets chosen first.
-                    if slots > 0 and statename == ec2.RUNNING:
+                    if slots > 0 and statename == RUNNING:
                         slots += 100
                     log.msg('nextEC2Worker:   worker %s score=%d' % (wfb.worker.name, slots))
                     if slots in wdict.keys():
