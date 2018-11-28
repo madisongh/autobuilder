@@ -516,7 +516,7 @@ def active_slots(w):
     return [wfb for wfb in itervalues(w.workerforbuilders) if wfb.isBusy()]
 
 
-def nextEC2Worker(wfbs, br):
+def nextEC2Worker(bldr, wfbs, br):
     """
     Called by BuildRequestDistributor to identify a worker to queue
     a build to. Instead of using the default random selection provided
@@ -525,6 +525,7 @@ def nextEC2Worker(wfbs, br):
         - Prefer running latent workers with available slots over non-running (even pending) ones.
         - Prefer pending latent workers over those that are shut down or shutting down.
         - Sort preferred latent workers based on number of available slots
+    :param bldr: Builder object
     :param wfbs: list of WorkerForBuilder objects
     :param br: BuildRequest object
     :return: WorkerForBuilder object
