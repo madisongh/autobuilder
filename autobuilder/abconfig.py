@@ -538,7 +538,10 @@ def nextEC2Worker(bldr, wfbs, br):
     realworkers = []
     for wfb in candidates:
         if wfb.worker is not None and isinstance(wfb.worker, MyEC2LatentWorker):
-            statename = wfb.worker.instance.state['Name']
+            if wfb.worker.instance:
+                statename = wfb.worker.instance.state['Name']
+            else:
+                statename = ec2.TERMINATED
             if statename in [ec2.PENDING, ec2.RUNNING]:
                 if wfb.worker.max_builds:
                     slots = wfb.worker.max_builds - len(active_slots(wfb.worker))
