@@ -513,8 +513,7 @@ class AutobuilderConfig(object):
 
 
 def active_slots(w):
-    from future.utils import itervalues
-    return [wfb for wfb in itervalues(w.workerforbuilders) if wfb.isBusy()]
+    return [wfb for wfb in w.workerforbuilders.values() if wfb.isBusy()]
 
 
 def nextEC2Worker(bldr, wfbs, br):
