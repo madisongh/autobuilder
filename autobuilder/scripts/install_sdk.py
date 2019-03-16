@@ -19,7 +19,7 @@ log = Log(__name__)
 
 def get_info(histdir, sdkname):
     infodict = {}
-    pat = re.compile('^(.+?)\s*=\s*(.+)\n')
+    pat = re.compile(r'^(.+?)\s*=\s*(.+)\n')
     infodir = os.path.join(histdir, sdkname)
     infofilename = os.path.join(infodir, 'sdk-info.txt')
     if not os.path.exists(infofilename):
