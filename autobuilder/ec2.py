@@ -55,8 +55,8 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                 raise ValueError(
                     'valid_ami_location_regex should be a string')
             else:
-                # verify that regex will compile
-                re.compile(valid_ami_location_regex)
+                # pre-compile the regex
+                valid_ami_location_regex = re.compile(valid_ami_location_regex)
         if spot_instance and price_multiplier is None and max_spot_price is None:
             raise ValueError('You must provide either one, or both, of '
                              'price_multiplier or max_spot_price')
@@ -218,7 +218,10 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             ImageId=image.id, KeyName=self.keypair_name,
             SecurityGroups=self.classic_security_groups,
             InstanceType=self.instance_type, UserData=self.user_data,
-            Placement=self.placement, MinCount=1, MaxCount=1,
+            Placement=self._remove_none_opts(
+                AvailabilityZone=self.placement,
+            ),
+            MinCount=1, MaxCount=1,
             NetworkInterfaces=[{'AssociatePublicIpAddress': True,
                                 'DeviceIndex': 0,
                                 'Groups': self.security_group_ids,
