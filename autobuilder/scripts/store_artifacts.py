@@ -66,7 +66,7 @@ def main():
     parser.add_argument('-s', '--storage-path',
                         help='URL or file path for storing artifacts',
                         action='store', dest='storage_path', required=True)
-    parser.add_argument('-d', '--debug', help='increase the debug level',
+    parser.add_argument('-D', '--debug', help='increase the debug level',
                         action='count', dest='debug', default=0)
     parser.add_argument('-v', '--verbose', help='verbose output',
                         action='store_true', dest='verbose')
