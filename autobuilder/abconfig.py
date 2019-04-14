@@ -47,7 +47,7 @@ class Repo(object):
 
 class ImageSpec(object):
     def __init__(self, args, keep_going=False):
-        if isinstance(args, basestring):
+        if isinstance(args, str):
             self.args = args.split()
         else:
             self.args = args
