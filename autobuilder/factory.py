@@ -117,7 +117,7 @@ def make_autoconf(props):
 
 @util.renderer
 def store_artifacts_cmd(props):
-    cmd = ['store-artifacts']
+    cmd = ['store-artifacts', '--verbose']
     if is_pull_request(props):
         cmd.append('--pull-request')
     cmd.append('--storage-path=%s' % props.getProperty('artifacts_path'))

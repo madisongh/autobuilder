@@ -46,14 +46,17 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None):
             copy_count += 1
             if s3:
                 s3.upload(localfile, destpath + "/" + relpath)
+                log.verbose('Uploaded %s -> %s' % (localfile, destpath + "/" + relpath))
             else:
                 full_destpath = os.path.join(destpath, relpath)
                 os.makedirs(os.path.dirname(full_destpath), exist_ok=True)
                 try:
                     shutil.copy(localfile, full_destpath)
+                    log.verbose('Copied %s -> %s' % (localfile, full_destpath))
                 except IOError as err:
                     log.warn('Error occurred copying %s to %s: %s (%d)',
                              localfile, full_destpath, err.strerror, err.errno)
+    log.verbose('Copied %d file%s' % (copy_count, '' if copy_count == 1 else 's'))
     return copy_count
 
 
