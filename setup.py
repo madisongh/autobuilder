@@ -2,17 +2,14 @@ from setuptools import setup, find_packages
 
 setup(
     name='autobuilder',
-    version='1.1.1',
+    version='2.0.0',
     packages=find_packages(),
     license='MIT',
     author='Matt Madison',
     author_email='matt@madison.systems',
     entry_points={
         'console_scripts': [
-            'update-sstate-mirror = autobuilder.scripts.update_sstate_mirror:main',
-            'update-downloads = autobuilder.scripts.update_downloads:main',
-            'install-sdk = autobuilder.scripts.install_sdk:main',
-            'autorev-report = autobuilder.scripts.autorev_report:main'
+            'store-artifacts = autobuilder.scripts.store_artifacts:main',
         ]
     },
     include_package_data=True,

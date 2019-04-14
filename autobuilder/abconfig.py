@@ -23,14 +23,11 @@ default_svp = {'name': '/dev/xvdf', 'size': 200,
 
 
 class Buildtype(object):
-    def __init__(self, name, build_sdk=False, install_sdk=False,
-                 sdk_root=None, current_symlink=False, defaulttype=False,
+    def __init__(self, name, current_symlink=False, defaulttype=False,
                  pullrequesttype=False, production_release=False,
-                 disable_sstate=False, extra_config=None):
+                 disable_sstate=False, keep_going=False, extra_config=None):
         self.name = name
-        self.build_sdk = build_sdk
-        self.install_sdk = install_sdk
-        self.sdk_root = sdk_root
+        self.keep_going = keep_going
         self.current_symlink = current_symlink
         self.defaulttype = defaulttype
         self.pullrequesttype = pullrequesttype
@@ -48,30 +45,51 @@ class Repo(object):
         self.submodules = submodules
 
 
+class ImageSpec(object):
+    def __init__(self, args, keep_going=False):
+        if isinstance(args, basestring):
+            self.args = args.split()
+        else:
+            self.args = args
+        self.keep_going = keep_going
+        self.env = {}
+
+
+class TargetImage(ImageSpec):
+    def __init__(self, machine, args, keep_going=False):
+        super().__init__(args, keep_going)
+        if machine:
+            self.env['MACHINE'] = machine
+
+
+class SdkImage(TargetImage):
+    def __init__(self, machine, sdkmachine, args, keep_going=False):
+        super().__init__(machine, args, keep_going)
+        self.env['SDKMACHINE'] = sdkmachine
+
+
 class TargetImageSet(object):
-    def __init__(self, name, images=None, sdkimages=None):
+    def __init__(self, name, imagespecs=None):
         self.name = name
-        if images is None and sdkimages is None:
-            raise RuntimeError('No images or SDK images defined for %s' %
-                               name)
-        self.images = images
-        self.sdkimages = sdkimages
+        if imagespecs is None:
+            raise RuntimeError('No images defined for %s' % name)
+        self.imagespecs = imagespecs
 
 
 class Distro(object):
     def __init__(self, name, reponame, branch, email, path,
-                 dldir=None, ssmirror=None,
-                 targets=None, sdkmachines=None,
-                 setup_script='./setup-env', repotimer=300,
+                 dldir=None,
+                 ssmirror=None,
+                 targets=None,
+                 setup_script='./setup-env',
+                 repotimer=300,
                  artifacts=None,
                  sstate_mirrorvar='SSTATE_MIRRORS = "file://.* file://%s/PATH"',
                  dl_mirrorvar=None,
-                 buildtypes=None, buildnum_template='DISTRO_BUILDNUM = "-%s"',
-                 release_buildname_variable='DISTRO_BUILDNAME',
+                 buildtypes=None,
+                 buildnum_template='DISTRO_BUILDNUM = "-%s"',
+                 release_buildname_variable='BUILDNAME',
                  dl_mirror=None,
-                 skip_sstate_update=False,
-                 skip_dl_update=False,
-                 clean_downloads=True,
                  weekly_type=None,
                  push_type='__default__',
                  pullrequest_type=None,
@@ -84,16 +102,12 @@ class Distro(object):
         self.dl_dir = dldir
         self.sstate_mirror = ssmirror
         self.targets = targets
-        self.sdkmachines = sdkmachines
         self.setup_script = setup_script
         self.repotimer = repotimer
         self.artifacts = artifacts
         self.sstate_mirrorvar = sstate_mirrorvar
         self.dl_mirrorvar = dl_mirrorvar
         self.dl_mirror = dl_mirror
-        self.skip_sstate_update = skip_sstate_update
-        self.skip_dl_update = skip_dl_update
-        self.clean_downloads = clean_downloads
         self.buildnum_template = buildnum_template
         self.release_buildname_variable = release_buildname_variable
         self.buildtypes = buildtypes
@@ -484,9 +498,6 @@ class AutobuilderConfig(object):
                      'sstate_mirrorvar': d.sstate_mirrorvar,
                      'dl_mirrorvar': d.dl_mirrorvar or "",
                      'dl_mirror': d.dl_mirror,
-                     'skip_sstate_update': 'yes' if d.skip_sstate_update else 'no',
-                     'skip_dl_update': 'yes' if d.skip_dl_update else 'no',
-                     'clean_downloads': 'yes' if d.clean_downloads else 'no',
                      'artifacts_path': d.artifacts_path,
                      'downloads_dir': d.dl_dir,
                      'project': d.name,
@@ -508,9 +519,7 @@ class AutobuilderConfig(object):
                                                             submodules=repo.submodules,
                                                             branch=d.branch,
                                                             codebase=d.reponame,
-                                                            imagedict=imgset.images,
-                                                            sdkmachines=d.sdkmachines,
-                                                            sdktargets=imgset.sdkimages))
+                                                            imageset=imgset))
                   for imgset in d.targets]
         return b
 

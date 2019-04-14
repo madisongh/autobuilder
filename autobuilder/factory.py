@@ -23,15 +23,6 @@ def _get_btinfo(props):
     return distro.btdict[buildtype]
 
 
-def build_sdk(props):
-    return _get_btinfo(props).build_sdk
-
-
-def install_sdk(props):
-    bt = _get_btinfo(props)
-    return bt.install_sdk and not bt.pullrequesttype
-
-
 def is_release_build(props):
     return _get_btinfo(props).production_release
 
@@ -44,30 +35,12 @@ def without_sstate(props):
     return _get_btinfo(props).disable_sstate
 
 
+def keep_going(props):
+    return _get_btinfo(props).keep_going
+
+
 def update_current_symlink(props):
     return _get_btinfo(props).current_symlink
-
-
-@util.renderer
-def sdk_root(props):
-    root = _get_btinfo(props).sdk_root
-    if root:
-        return '--install-root=' + root
-    else:
-        return ''
-
-
-@util.renderer
-def sdk_use_current(props):
-    return '--update-current' if update_current_symlink(props) else ''
-
-
-@util.renderer
-def sdk_stamp(props):
-    if _get_btinfo(props).production_release:
-        return '--no-stamp'
-    else:
-        return '--date-stamp=' + (props.getProperty('datestamp') or time.strftime('%Y%m%d'))
 
 
 @util.renderer
@@ -97,11 +70,6 @@ def build_tag(props):
                         props.getProperty('buildnumber'))
 
 
-def build_output_path(props, current_symlink=False):
-    return '%s/%s/%s' % (props.getProperty('artifacts_path'), props.getProperty('imageset'),
-                         'current' if current_symlink else build_tag(props))
-
-
 def worker_extraconfig(props):
     abcfg = settings.get_config_for_builder(props.getProperty('autobuilder'))
     wcfg = abcfg.worker_cfgs[props.getProperty('workername')]
@@ -113,7 +81,7 @@ def worker_extraconfig(props):
 @util.renderer
 def make_autoconf(props):
     pr = is_pull_request(props)
-    result = ['INHERIT += "rm_work%s"' % ('' if pr else ' buildhistory'),
+    result = ['INHERIT += "rm_work buildstats-summary%s"' % ('' if pr else ' buildhistory'),
               props.getProperty('buildnum_template') % build_tag(props)]
     if is_release_build(props):
         result.append('%s = ""' % props.getProperty('release_buildname_variable'))
@@ -123,11 +91,13 @@ def make_autoconf(props):
         result.append(props.getProperty('dl_mirrorvar') % props.getProperty('dl_mirror'))
         if not pr:
             result.append('BB_GENERATE_MIRROR_TARBALLS = "1"')
-    if props.getProperty('sstate_mirrorvar') != "":
-        if without_sstate(props):
-            result.append(props.getProperty('sstate_mirrorvar') % '/error/no/such/path')
-        elif props.getProperty('sstate_mirror') is not None:
-            result.append(props.getProperty('sstate_mirrorvar') % props.getProperty('sstate_mirror'))
+            result.append('UPDATE_DOWNLOADS_MIRROR = "1"')
+    if props.getProperty('sstate_mirrorvar') and props.getProperty('sstate_mirror'):
+        result.append(props.getProperty('sstate_mirrorvar') % props.getProperty('sstate_mirror'))
+        if not pr:
+            result.append('UPDATE_SSTATE_MIRROR = "1"')
+    if without_sstate(props):
+        result.append('SSTATE_MIRRORS_forcevariable = ""')
     if not pr:
         result.append('BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"')
     # Worker-specific config
@@ -146,38 +116,27 @@ def make_autoconf(props):
 
 
 @util.renderer
-def copy_artifacts_cmdseq(props):
-    cmd = 'if [ -d tmp/deploy ]; then mkdir -p ' + build_output_path(props) + '; '
-    cmd += 'for d in ' + props.getProperty('artifacts') + '; '
-    cmd += 'do if [ -d tmp/deploy/$d ]; then cp -R tmp/deploy/$d '
-    cmd += build_output_path(props) + '; fi; done; fi'
-    return ['bash', '-c', cmd]
+def store_artifacts_cmd(props):
+    cmd = ['store-artifacts']
+    if is_pull_request(props):
+        cmd.append('--pull-request')
+    cmd.append('--storage-path="%s"' % props.getProperty('artifacts_path'))
+    cmd.append('--build-tag="%s"' % build_tag(props))
+    cmd.append('--buildername=' + props.getProperty('buildername'))
+    cmd.append('--imageset="%s"' % props.getProperty('imageset'))
+    cmd.append('--distro="%s"' % props.getProperty('distro'))
+    cmd.append('--artifacts=%s' % props.getProperty('artifacts'))
+    if update_current_symlink(props.getProperty):
+        cmd.append('--update-current')
+    cmd.append(props.getProperty('BUILDDIR'))
+    return cmd
 
 
 @util.renderer
-def update_artifacts_current_symlink(props):
-    cmd = 'ln -snf ' + build_tag(props) + ' ' + build_output_path(props, current_symlink=True)
-    return ['bash', '-c', cmd]
-
-
-@util.renderer
-def save_stamps_cmdseq(props):
-    stamps_dir = os.path.join(build_output_path(props), 'stamps')
-    tarfile = props.getProperty('buildername') + '.tar.gz'
-    cmd = 'if [ -d tmp/stamps ]; then mkdir -p ' + stamps_dir + '; '
-    cmd += '(cd tmp/stamps; tar -c -z -f ' + os.path.join(stamps_dir, tarfile)
-    cmd += ' . ); fi'
-    return ['bash', '-c', cmd]
-
-
-@util.renderer
-def save_history_cmdseq(props):
-    history_dir = os.path.join(build_output_path(props), 'buildhistory')
-    tarfile = props.getProperty('buildername') + '.tar.gz'
-    cmd = 'if [ -d buildhistory ]; then mkdir -p ' + history_dir + '; '
-    cmd += 'tar -c -z -f ' + os.path.join(history_dir, tarfile) + ' buildhistory; fi'
-    return ['bash', '-c', cmd]
-
+def bitbake_options(props):
+    opts = ''
+    if keep_going(props):
+        opts += ' -k'
 
 # noinspection PyUnusedLocal
 @util.renderer
@@ -187,8 +146,7 @@ def datestamp(props):
 
 class DistroImage(BuildFactory):
     def __init__(self, repourl, submodules=False, branch='master',
-                 codebase='', imagedict=None, sdkmachines=None,
-                 sdktargets=None):
+                 codebase='', imageset=None):
         BuildFactory.__init__(self)
         self.addStep(steps.SetProperty(property='datestamp', value=datestamp))
         self.addStep(steps.Git(repourl=repourl, submodules=submodules,
@@ -224,114 +182,28 @@ class DistroImage(BuildFactory):
                                                   description=['Running', 'setup', 'script'],
                                                   descriptionDone=['Ran', 'setup', 'script']))
         self.addStep(steps.StringDownload(s=make_autoconf, workerdest='auto.conf',
-                                          workdir='build/build/conf', name='make-auto.conf',
+                                          workdir=util.Property('BUILDDIR') + '/conf', name='make-auto.conf',
                                           description=['Creating', 'auto.conf'],
                                           descriptionDone=['Created', 'auto.conf']))
 
-        # Build the target image(s)
+        cmdseq = []
+        for img in imageset:
+            tgtenv = env_vars.copy()
+            tgtenv.update(img.env)
+            bbcmd = "bitbake"
+            if img.keep_going:
+                bbcmd += " -k"
+            cmd = util.Interpolate(bbcmd + "%(kw:bitbake_options) " + ' '.join(img.args),
+                                   bitbake_options=bitbake_options)
+            cmdseq.append(util.ShellArg(command=['bash', '-c', cmd], env=tgtenv,
+                                        workdir=util.Property('BUILDDIR')))
 
-        if imagedict is not None:
-            for tgt in imagedict:
-                tgtenv = env_vars.copy()
-                tgtenv['MACHINE'] = tgt
-                self.addStep(steps.ShellCommand(command=['bash', '-c', 'bitbake %s' % imagedict[tgt]],
-                                                env=tgtenv, workdir=util.Property('BUILDDIR'), timeout=None,
-                                                name='%s_%s' % (imagedict[tgt], tgt),
-                                                description=['Building', imagedict[tgt], '(' + tgt + ')'],
-                                                descriptionDone=['Built', imagedict[tgt], '(' + tgt + ')']))
+        self.addStep(steps.ShellSequence(commands=cmdseq, timeout=None,
+                                         name='build_%s' % imageset.name,
+                                         description=['Building', imageset.name],
+                                         descriptionDone=['Built', imageset.name]))
 
-        # Build the SDK(s)
-
-        if sdktargets is not None:
-            for tgt in sdktargets:
-                tgtenv = env_vars.copy()
-                tgtenv['MACHINE'] = tgt
-                image = sdktargets[tgt]
-                if image not in ['buildtools-tarball', 'uninative-tarball', 'meta-toolchain']:
-                    # noinspection PyAugmentAssignment
-                    image = '-c populate_sdk ' + image
-                if sdkmachines is None:
-                    self.addStep(steps.ShellCommand(command=['bash', '-c', 'bitbake %s' % image],
-                                                    env=tgtenv, workdir=util.Property('BUILDDIR'), timeout=None,
-                                                    name='sdk-%s_%s' % (image, tgt),
-                                                    doStepIf=lambda step: build_sdk(step.build.getProperties()),
-                                                    hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                                    description=['Building', 'SDK', image, '(' + tgt + ')'],
-                                                    descriptionDone=['Built', 'SDK', image, '(' + tgt + ')']))
-                else:
-                    for sdkmach in sdkmachines:
-                        sdkenv = tgtenv.copy()
-                        sdkenv['SDKMACHINE'] = sdkmach
-                        self.addStep(steps.ShellCommand(command=['bash', '-c', 'bitbake %s' % image],
-                                                        env=sdkenv, workdir=util.Property('BUILDDIR'), timeout=None,
-                                                        name='sdk-%s_%s_%s' % (sdkmach, image, tgt),
-                                                        doStepIf=lambda step: build_sdk(step.build.getProperties()),
-                                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                                        description=['Building', sdkmach, 'SDK', image,
-                                                                     '(' + tgt + ')'],
-                                                        descriptionDone=['Built', sdkmach, 'SDK', image,
-                                                                         '(' + tgt + ')']))
-
-        self.addStep(steps.ShellCommand(command=['autorev-report', 'buildhistory'],
-                                        workdir=util.Property('BUILDDIR'),
-                                        name='AutorevReport', timeout=None,
-                                        doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
-                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                        description=['Generating', 'AUTOREV', 'report'],
-                                        descriptionDone=['Generated', 'AUTOREV', 'report']))
-
-        # Copy artifacts, stamps, buildhistory to binary repo
-
-        self.addStep(steps.ShellCommand(command=copy_artifacts_cmdseq, workdir=util.Property('BUILDDIR'),
-                                        name='CopyArtifacts', timeout=None,
-                                        doStepIf=lambda step: (not is_pull_request(step.build.getProperties()) and
-                                                               step.build.getProperty('artifacts') != ''),
-                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                        description=['Copying', 'artifacts', 'to', 'binary', 'repo'],
-                                        descriptionDone=['Copied', 'artifacts', 'to', 'binary', 'repo']))
-        self.addStep(steps.ShellCommand(command=save_stamps_cmdseq, workdir=util.Property('BUILDDIR'),
-                                        name='SaveStamps', timeout=None,
-                                        doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
-                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                        description=['Saving', 'build', 'stamps'],
-                                        descriptionDone=['Saved', 'build', 'stamps']))
-        self.addStep(steps.ShellCommand(command=save_history_cmdseq, workdir=util.Property('BUILDDIR'),
-                                        name='SaveHistory', timeout=None,
-                                        doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
-                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                        description=['Saving', 'buildhistory', 'data'],
-                                        descriptionDone=['Saved', 'buildhistory', 'data']))
-        self.addStep(steps.ShellCommand(command=update_artifacts_current_symlink, workdir=util.Property('BUILDDIR'),
-                                        name='UpdateCurrentSymnlink', timeout=None,
-                                        doStepIf=lambda step: update_current_symlink(step.build.getProperties()),
-                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                        description=['Updating', 'current', 'symlink'],
-                                        descriptionDone=['Updated', 'current', 'symlink']))
-        self.addStep(steps.ShellCommand(command=['update-sstate-mirror', '-v', '-s', 'sstate-cache',
-                                                 util.Property('sstate_mirror')], workdir=util.Property('BUILDDIR'),
-                                        doStepIf=lambda step: (not is_pull_request(step.build.getProperties()) and
-                                                               step.build.getProperty('skip_sstate_update') != 'yes'),
-                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                        name='UpdateSharedState', timeout=None,
-                                        description=['Updating', 'shared-state', 'mirror'],
-                                        descriptionDone=['Updated', 'shared-state', 'mirror']))
-        self.addStep(steps.ShellCommand(command=['update-downloads', '-v', '-l', dl_dir,
-                                                 util.Property('dl_mirror')], workdir=util.Property('BUILDDIR'),
-                                        doStepIf=lambda step: (not is_pull_request(step.build.getProperties()) and
-                                                               step.build.getProperty('dl_mirror') is not None and
-                                                               step.build.getProperty('skip_dl_update') != 'yes'),
-                                        hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                        name='UpdateDownloads', timeout=None,
-                                        description=['Updating', 'downloads', 'mirror'],
-                                        descriptionDone=['Updated', 'downloads', 'mirror']))
-        if sdktargets is not None:
-            for tgt in sdktargets:
-                cmd = ['install-sdk', sdk_root, sdk_stamp,
-                       '--machine=%s' % tgt, '--image=%s' % sdktargets[tgt],
-                       sdk_use_current]
-                self.addStep(steps.ShellCommand(command=cmd, workdir=util.Property('BUILDDIR'),
-                                                name='InstallSDKs', timeout=None,
-                                                doStepIf=lambda step: install_sdk(step.build.getProperties()),
-                                                hideStepIf=lambda results, step: results == bbres.SKIPPED,
-                                                description=['Installing', sdktargets[tgt], 'SDK', '(' + tgt + ')'],
-                                                descriptionDone=['Installed', sdktargets[tgt], 'SDK', '(' + tgt + ')']))
+        self.addStep(steps.ShellCommand(command=store_artifacts_cmd, workdir=util.Property('BUILDDIR'),
+                                        name='StoreArtifacts', timeout=None,
+                                        description=['Storing', 'artifacts'],
+                                        descriptionDone=['Stored', 'artifacts']))
