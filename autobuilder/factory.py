@@ -186,8 +186,7 @@ class DistroImage(BuildFactory):
                                           description=['Creating', 'auto.conf'],
                                           descriptionDone=['Created', 'auto.conf']))
 
-        cmdseq = []
-        for img in imageset.imagespecs:
+        for i, img in enumerate(imageset.imagespecs, start=1):
             tgtenv = env_vars.copy()
             tgtenv.update(img.env)
             bbcmd = "bitbake"
@@ -195,13 +194,11 @@ class DistroImage(BuildFactory):
                 bbcmd += " -k"
             cmd = util.Interpolate(bbcmd + "%(kw:bitbake_options)s " + ' '.join(img.args),
                                    bitbake_options=bitbake_options)
-            cmdseq.append(util.ShellArg(command=['bash', '-c', cmd], env=tgtenv,
-                                        workdir=util.Property('BUILDDIR')))
-
-        self.addStep(steps.ShellSequence(commands=cmdseq, timeout=None,
-                                         name='build_%s' % imageset.name,
-                                         description=['Building', imageset.name],
-                                         descriptionDone=['Built', imageset.name]))
+            self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
+                                         env=tgtenv, workdir=util.Property('BUILDDIR'),
+                                         name='build_%s_%d' % (imageset.name, i),
+                                         description=['Building', imageset.name, 'image %d' % i],
+                                         descriptionDone=['Built', imageset.name, 'image %d' % i]))
 
         self.addStep(steps.ShellCommand(command=store_artifacts_cmd, workdir=util.Property('BUILDDIR'),
                                         name='StoreArtifacts', timeout=None,
