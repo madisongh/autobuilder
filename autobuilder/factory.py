@@ -126,7 +126,7 @@ def store_artifacts_cmd(props):
     cmd.append('--imageset="%s"' % props.getProperty('imageset'))
     cmd.append('--distro="%s"' % props.getProperty('distro'))
     cmd.append('--artifacts=%s' % props.getProperty('artifacts'))
-    if update_current_symlink(props.getProperty):
+    if update_current_symlink(props):
         cmd.append('--update-current')
     cmd.append(props.getProperty('BUILDDIR'))
     return cmd
