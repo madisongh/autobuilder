@@ -120,11 +120,11 @@ def store_artifacts_cmd(props):
     cmd = ['store-artifacts']
     if is_pull_request(props):
         cmd.append('--pull-request')
-    cmd.append('--storage-path="%s"' % props.getProperty('artifacts_path'))
-    cmd.append('--build-tag="%s"' % build_tag(props))
+    cmd.append('--storage-path=%s' % props.getProperty('artifacts_path'))
+    cmd.append('--build-tag=%s' % build_tag(props))
     cmd.append('--buildername=' + props.getProperty('buildername'))
-    cmd.append('--imageset="%s"' % props.getProperty('imageset'))
-    cmd.append('--distro="%s"' % props.getProperty('distro'))
+    cmd.append('--imageset=%s' % props.getProperty('imageset'))
+    cmd.append('--distro=%s' % props.getProperty('distro'))
     cmd.append('--artifacts=%s' % props.getProperty('artifacts'))
     if update_current_symlink(props):
         cmd.append('--update-current')
