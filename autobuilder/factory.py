@@ -187,7 +187,7 @@ class DistroImage(BuildFactory):
                                           descriptionDone=['Created', 'auto.conf']))
 
         cmdseq = []
-        for img in imageset:
+        for img in imageset.imagespecs:
             tgtenv = env_vars.copy()
             tgtenv.update(img.env)
             bbcmd = "bitbake"
