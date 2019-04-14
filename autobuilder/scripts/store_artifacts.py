@@ -84,7 +84,7 @@ def main():
                         action='store', dest='artifacts')
     parser.add_argument('builddir',
                         help='path to build directory ($BUILDDIR)',
-                        action='store', dest='builddir', default=os.getenv("BUILDDIR"))
+                        action='store', default=os.getenv("BUILDDIR"))
     args = parser.parse_args()
     log.set_level(args.debug, args.verbose)
     if not args.artifacts:
