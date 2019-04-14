@@ -182,7 +182,7 @@ class DistroImage(BuildFactory):
                                                   description=['Running', 'setup', 'script'],
                                                   descriptionDone=['Ran', 'setup', 'script']))
         self.addStep(steps.StringDownload(s=make_autoconf, workerdest='auto.conf',
-                                          workdir=util.Property('BUILDDIR') + '/conf', name='make-auto.conf',
+                                          workdir=util.Interpolate("%(prop:BUILDDIR)s/conf"), name='make-auto.conf',
                                           description=['Creating', 'auto.conf'],
                                           descriptionDone=['Created', 'auto.conf']))
 
@@ -193,7 +193,7 @@ class DistroImage(BuildFactory):
             bbcmd = "bitbake"
             if img.keep_going:
                 bbcmd += " -k"
-            cmd = util.Interpolate(bbcmd + "%(kw:bitbake_options) " + ' '.join(img.args),
+            cmd = util.Interpolate(bbcmd + "%(kw:bitbake_options)s " + ' '.join(img.args),
                                    bitbake_options=bitbake_options)
             cmdseq.append(util.ShellArg(command=['bash', '-c', cmd], env=tgtenv,
                                         workdir=util.Property('BUILDDIR')))
