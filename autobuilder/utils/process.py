@@ -84,6 +84,11 @@ def run(cmd, input=None, errignore=False, **options):
     """Convenience function to run a command and return its output, raising an
     exception when the command fails"""
 
+    try:
+        basestring
+    except NameError:
+        basestring = str
+
     if isinstance(cmd, basestring) and "shell" not in options:
         options["shell"] = True
 
