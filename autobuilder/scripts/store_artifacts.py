@@ -73,7 +73,7 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None, tarball=False):
             if log.verbosity or log.debug_level > 0:
                 cmd.append('-v')
             output, errors = process.run(cmd)
-            log.verbose(output)
+            log.verbose(output.rstrip())
             if s3:
                 s3.upload(tarballname, destpath + "/" + os.path.basename(tarballname))
             else:

@@ -103,6 +103,10 @@ def run(cmd, input=None, errignore=False, **options):
             raise CmdError(cmd, exc)
 
     stdout, stderr = pipe.communicate(input)
+    if stdout is not None:
+        stdout = stdout.decode("utf-8")
+    if stderr is not None:
+        stderr = stderr.decode("utf-8")
 
     if pipe.returncode != 0 and not errignore:
         raise ExecutionError(cmd, pipe.returncode, stdout, stderr)
