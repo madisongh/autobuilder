@@ -138,6 +138,7 @@ def bitbake_options(props):
     if keep_going(props):
         opts += ' -k'
 
+
 # noinspection PyUnusedLocal
 @util.renderer
 def datestamp(props):
@@ -195,10 +196,10 @@ class DistroImage(BuildFactory):
             cmd = util.Interpolate(bbcmd + "%(kw:bitbake_options)s " + ' '.join(img.args),
                                    bitbake_options=bitbake_options)
             self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
-                                         env=tgtenv, workdir=util.Property('BUILDDIR'),
-                                         name='build_%s_%d' % (imageset.name, i),
-                                         description=['Building', imageset.name, 'image %d' % i],
-                                         descriptionDone=['Built', imageset.name, 'image %d' % i]))
+                                            env=tgtenv, workdir=util.Property('BUILDDIR'),
+                                            name='build_%s_%s' % (imageset.name, img.name),
+                                            description=['Building', imageset.name, img.name],
+                                            descriptionDone=['Built', imageset.name, img.name]))
 
         self.addStep(steps.ShellCommand(command=store_artifacts_cmd, workdir=util.Property('BUILDDIR'),
                                         name='StoreArtifacts', timeout=None,

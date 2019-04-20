@@ -46,26 +46,38 @@ class Repo(object):
 
 
 class ImageSpec(object):
-    def __init__(self, args, keep_going=False):
+    def __init__(self, args, name=None, keep_going=False):
         if isinstance(args, str):
             self.args = args.split()
         else:
             self.args = args
+        self.name = name
         self.keep_going = keep_going
         self.env = {}
 
 
 class TargetImage(ImageSpec):
-    def __init__(self, machine, args, keep_going=False):
-        super().__init__(args, keep_going)
+    def __init__(self, machine, args, name=None, keep_going=False):
+        super().__init__(args, name, keep_going)
         if machine:
             self.env['MACHINE'] = machine
+            if not self.name:
+                self.name = machine + ':' + '_'.join([a for a in self.args if not a.startswith('-')])
+        elif not self.name:
+            self.name = '_'.join([a for a in self.args if not a.startswith('-')])
 
 
-class SdkImage(TargetImage):
-    def __init__(self, machine, sdkmachine, args, keep_going=False):
-        super().__init__(machine, args, keep_going)
+class SdkImage(ImageSpec):
+    def __init__(self, machine, sdkmachine, args, name=None, keep_going=False):
+        super().__init__(args, name, keep_going)
         self.env['SDKMACHINE'] = sdkmachine
+        if machine:
+            self.env['MACHINE'] = machine
+            if not self.name:
+                self.name = 'SDK_%s:%s:%s' % (sdkmachine, machine,
+                                              '_'.join([a for a in self.args if not a.startswith('-')]))
+        elif not self.name:
+            self.name = 'SDK_%s:%s' % (sdkmachine, '_'.join([a for a in self.args if not a.startswith('-')]))
 
 
 class TargetImageSet(object):
