@@ -9,17 +9,20 @@ import stat
 import argparse
 import urllib
 import shutil
+import tempfile
 import autobuilder.utils.locks as locks
 from datetime import date, timedelta
 from autobuilder.utils.logutils import Log
 from autobuilder.utils import s3session
+from autobuilder.utils import process
 
 __version__ = '0.1.0'
 
 log = Log(__name__)
 
 
-def copy_recursive(topdir, subdir, s3, destpath, filepat=None):
+# noinspection PyBroadException
+def copy_recursive(topdir, subdir, s3, destpath, filepat=None, tarball=False):
     """
     Walks a subdirectory under the build directory and copies all matching
     files under that subdirectory.  Symlinks are skipped, and if 'filepat'
@@ -28,6 +31,9 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None):
 
     Returns the number of files copied.
     """
+    filelist = None
+    if tarball:
+        filelist = tempfile.NamedTemporaryFile(mode='w', encoding='latin-1', delete=False)
     copy_count = 0
     if filepat:
         pat = re.compile(filepat)
@@ -44,7 +50,9 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None):
             relpath = localfile[len(root)+1:]
 
             copy_count += 1
-            if s3:
+            if tarball:
+                filelist.write(relpath + '\n')
+            elif s3:
                 s3.upload(localfile, destpath + "/" + relpath)
                 log.verbose('Uploaded %s -> %s' % (localfile, destpath + "/" + relpath))
             else:
@@ -56,12 +64,49 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None):
                 except IOError as err:
                     log.warn('Error occurred copying %s to %s: %s (%d)',
                              localfile, full_destpath, err.strerror, err.errno)
+    if tarball:
+        flname = filelist.name
+        filelist.close()
+        tarballname = os.path.join(workdir, os.path.basename(subdir) + '.tar.gz')
+        try:
+            cmd = ['tar', '-C', root, '--files-from', flname, '-z', '-f', tarballname]
+            if log.verbosity or log.debug_level > 0:
+                cmd.append('-v')
+            output, errors = process.run(cmd)
+            log.verbose(output)
+            if s3:
+                s3.upload(tarballname, destpath + "/" + os.path.basename(tarballname))
+            else:
+                full_destpath = os.path.join(destpath, os.path.basename(tarballname))
+                os.makedirs(os.path.dirname(full_destpath), exist_ok=True)
+                try:
+                    shutil.copy(tarballname, full_destpath)
+                    log.verbose('Copied %s -> %s' % (tarballname, full_destpath))
+                except IOError as err:
+                    log.warn('Error occurred copying %s to %s: %s (%d)',
+                             tarballname, full_destpath, err.strerror, err.errno)
+        except (process.CmdError, process.NotFoundError) as err:
+            log.error("%s" % err)
+        except process.ExecutionError as err:
+            log.error("%s" % err.stderr)
+        finally:
+            # noinspection PyBroadException
+            try:
+                os.unlink(tarballname)
+            except Exception:
+                pass
+        try:
+            os.unlink(flname)
+        except Exception:
+            pass
+
     log.verbose('Copied %d file%s' % (copy_count, '' if copy_count == 1 else 's'))
     return copy_count
 
 
 def main():
     global log
+    global workdir
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--pull-request',
                         help='store artifacts of a PR build',
@@ -90,6 +135,7 @@ def main():
                         action='store', default=os.getenv("BUILDDIR"))
     args = parser.parse_args()
     log.set_level(args.debug, args.verbose)
+    workdir = args.builddir
     if not args.artifacts:
         log.plain('No artifacts requested, exiting')
         return 0
@@ -111,10 +157,12 @@ def main():
             copy_recursive(args.builddir, 'tmp/deploy/images', s3, destpath + "/images")
             continue
         if artifact == 'stamps':
-            copy_recursive(args.builddir, 'tmp/stamps', s3, destpath + "/stamps", filepat=r'.*sigdata.*')
+            copy_recursive(args.builddir, 'tmp/stamps', s3, destpath,
+                           filepat=r'.*sigdata.*', tarball=True)
             continue
         if artifact == 'buildhistory':
-            copy_recursive(args.builddir, 'buildhistory', s3, destpath + "/buildhistory")
+            copy_recursive(args.builddir, 'buildhistory', s3, destpath,
+                           tarball=True)
             continue
         if artifact == 'sdk':
             copy_recursive(args.builddir, 'tmp/deploy/sdk', s3, destpath + "/sdk")
