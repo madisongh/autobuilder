@@ -85,6 +85,7 @@ def run(cmd, input=None, errignore=False, **options):
     exception when the command fails"""
 
     try:
+        # noinspection PyUnboundLocalVariable
         basestring
     except NameError:
         basestring = str
