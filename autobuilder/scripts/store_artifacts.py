@@ -69,7 +69,7 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None, tarball=False):
         filelist.close()
         tarballname = os.path.join(workdir, os.path.basename(subdir) + '.tar.gz')
         try:
-            cmd = ['tar', '-C', root, '--files-from', flname, '-z', '-f', tarballname]
+            cmd = ['tar', '-c', '-C', root, '--files-from', flname, '-z', '-f', tarballname]
             if log.verbosity or log.debug_level > 0:
                 cmd.append('-v')
             output, errors = process.run(cmd)
