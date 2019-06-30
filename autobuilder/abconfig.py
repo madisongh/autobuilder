@@ -12,6 +12,7 @@ from twisted.python import log
 from buildbot.plugins import changes, schedulers, util, worker
 from buildbot.www.hooks.github import GitHubEventHandler
 from buildbot.config import BuilderConfig
+import jinja2
 from autobuilder import factory, settings
 from autobuilder.ec2 import MyEC2LatentWorker
 from autobuilder import utils
@@ -179,7 +180,8 @@ class EC2Params(object):
     def __init__(self, instance_type, ami, secgroup_ids, keypair=None,
                  region=None, subnet=None, elastic_ip=None, tags=None,
                  scratchvol=False, scratchvol_params=None,
-                 instance_profile_name=None):
+                 instance_profile_name=None, spot_instance=False,
+                 max_spot_price=None, price_multiplier=None):
         self.instance_type = instance_type
         self.ami = ami
         self.keypair = keypair
@@ -193,12 +195,20 @@ class EC2Params(object):
         else:
             self.scratchvolparams = None
         self.instance_profile_name = instance_profile_name
+        self.spot_instance = spot_instance
+        if self.spot_instance and max_spot_price is None and price_multiplier is None:
+            raise ValueError('You must provide either max_spot_price, or '
+                             'price_multiplier, or both, to use spot instances')
+        self.max_spot_price = max_spot_price
+        self.price_multiplier = price_multiplier
 
 
 class AutobuilderEC2Worker(AutobuilderWorker):
     master_ip_address = os.getenv('MASTER_IP_ADDRESS')
 
-    def __init__(self, name, password, ec2params, conftext=None, max_builds=1):
+    def __init__(self, name, password, ec2params, conftext=None, max_builds=1,
+                 userdata_template_dir=None, userdata_template_file='cloud-init.txt',
+                 userdata_dict=None):
         if not password:
             password = ''.join(RNG.choice(string.ascii_letters + string.digits) for _ in range(16))
         AutobuilderWorker.__init__(self, name, password, conftext, max_builds)
@@ -229,12 +239,27 @@ class AutobuilderEC2Worker(AutobuilderWorker):
             self.ec2_dev_mapping = [
                 {'DeviceName': svp['name'], 'Ebs': ebs}
             ]
+        if userdata_template_file:
+            if userdata_template_dir is None:
+                userdata_template_dir = os.path.join(os.path.dirname(__file__), "templates")
+            loader = jinja2.FileSystemLoader(userdata_template_dir)
+            env = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
+            self.userdata_template = env.get_template(userdata_template_file)
+        else:
+            self.userdata_template = None
+        self.userdata_extra_context = userdata_dict
 
     def userdata(self):
-        return 'WORKERNAME="{}"\n'.format(self.name) + \
-               'WORKERSECRET="{}"\n'.format(self.password) + \
-               'MASTER="{}"\n'.format(self.master_ip_address)
-
+        ctx = {'workername': self.name,
+               'workersecret': self.password,
+               'master_ip': self.master_ip_address }
+        if self.userdata_extra_context:
+            ctx.update(self.userdata_extra_context)
+        if self.userdata_template:
+            return self.userdata_template.render(ctx)
+        return 'WORKERNAME="{}"\nWORKERSECRET="{}"\nMASTER="{}"\n'.format(self.name,
+                                                                          self.password,
+                                                                          self.master_ip_address)
 
 def get_project_for_url(repo_url, branch):
     for abcfg in settings.settings_dict():

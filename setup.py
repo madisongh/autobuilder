@@ -25,5 +25,6 @@ setup(
                       'buildbot-badges>=2.2.0',
                       'boto3', 'botocore',
                       'treq', 'twisted',
-                      'python-dateutil']
+                      'python-dateutil',
+                      'jinja2']
 )

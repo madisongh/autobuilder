@@ -1,0 +1,17 @@
+#cloud-config
+fs_setup:
+    - label: SCRATCH
+      filesystem: ext4
+      device: ephemeral0
+      partition: auto
+
+write_files:
+    - content: |
+        WORKERNAME="{{ workername }}"
+        WORKERSECRET="{{ workersecret }}"
+        MASTER="{{ master_ip }}"
+      path: /etc/default/buildworker
+      permissions: '0644'
+
+
+
