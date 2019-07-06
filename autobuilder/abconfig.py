@@ -435,7 +435,9 @@ class AutobuilderConfig(object):
                                                       user_data=w.userdata(),
                                                       elastic_ip=w.ec2params.elastic_ip,
                                                       tags=w.ec2tags,
-                                                      block_device_map=w.ec2_dev_mapping))
+                                                      block_device_map=w.ec2_dev_mapping,
+                                                      spot_instance=w.ec2params.spot_instance,
+                                                      max_spot_price=w.ec2params.max_spot_price))
             else:
                 self.workers.append(worker.Worker(w.name, w.password, max_builds=w.max_builds))
             self.worker_cfgs[w.name] = w

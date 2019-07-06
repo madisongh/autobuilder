@@ -5,6 +5,7 @@ from buildbot.worker import AbstractLatentWorker
 import boto3
 import botocore
 from botocore.client import ClientError
+from twisted.python import log
 
 
 class MyEC2LatentWorker(worker.EC2LatentWorker):
@@ -241,3 +242,44 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             return [instance_id, image.id, start_time]
         else:
             self.failed_to_start(self.instance.id, self.instance.state['Name'])
+
+    def _request_spot_instance(self):
+        if self.price_multiplier is None:
+            bid_price = self.max_spot_price
+        else:
+            bid_price = self._bid_price_from_spot_price_history()
+            if self.max_spot_price is not None \
+               and bid_price > self.max_spot_price:
+                bid_price = self.max_spot_price
+        log.msg('%s %s requesting spot instance with price %0.4f' %
+                (self.__class__.__name__, self.workername, bid_price))
+        reservations = self.ec2.meta.client.request_spot_instances(
+            SpotPrice=str(bid_price),
+            LaunchSpecification=self._remove_none_opts(
+                ImageId=self.ami,
+                KeyName=self.keypair_name,
+                SecurityGroups=self.classic_security_groups,
+                UserData=self.user_data,
+                InstanceType=self.instance_type,
+                Placement=self._remove_none_opts(
+                    AvailabilityZone=self.placement,
+                ),
+                NetworkInterfaces=[{'AssociatePublicIpAddress': True,
+                                    'DeviceIndex': 0,
+                                    'Groups': self.security_group_ids,
+                                    'SubnetId': self.subnet_id}],
+                BlockDeviceMappings=self.block_device_map,
+                IamInstanceProfile=self._remove_none_opts(
+                    Name=self.instance_profile_name,
+                )
+            )
+        )
+        request, success = self._wait_for_request(
+            reservations['SpotInstanceRequests'][0])
+        if not success:
+            raise LatentWorkerFailedToSubstantiate()
+        instance_id = request['InstanceId']
+        self.instance = self.ec2.Instance(instance_id)
+        image = self.get_image()
+        instance_id, start_time = self._wait_for_instance()
+        return instance_id, image.id, start_time
