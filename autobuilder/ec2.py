@@ -213,7 +213,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         self.block_device_map = self.create_block_device_mapping(
             block_device_map) if block_device_map else None
         if self.placement is None and self.subnet_id:
-            self.placement = self.ec2.Subnet(self.subnet_id).availability_zone()
+            self.placement = self.ec2.Subnet(self.subnet_id).availability_zone
 
     def _start_instance(self):
         image = self.get_image()
