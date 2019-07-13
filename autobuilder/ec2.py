@@ -1,5 +1,6 @@
 import re
 import os
+import base64
 from buildbot.plugins import worker
 from buildbot.worker import AbstractLatentWorker
 import boto3
@@ -68,7 +69,10 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         self.instance_type = instance_type
         self.keypair_name = keypair_name
         self.security_name = security_name
-        self.user_data = user_data
+        if user_data is not None:
+            self.user_data = base64.b64encode(bytes(user_data, 'utf-8')).decode('ascii')
+        else:
+            self.user_data = None
         self.spot_instance = spot_instance
         self.max_spot_price = max_spot_price
         self.volumes = volumes
