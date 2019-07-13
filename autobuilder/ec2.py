@@ -69,10 +69,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         self.instance_type = instance_type
         self.keypair_name = keypair_name
         self.security_name = security_name
-        if user_data is not None:
-            self.user_data = base64.b64encode(bytes(user_data, 'utf-8')).decode('ascii')
-        else:
-            self.user_data = None
+        self.user_data = user_data
         self.spot_instance = spot_instance
         self.max_spot_price = max_spot_price
         self.volumes = volumes
@@ -265,7 +262,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                 ImageId=self.ami,
                 KeyName=self.keypair_name,
                 SecurityGroups=self.classic_security_groups,
-                UserData=self.user_data,
+                UserData=base64.b64encode(bytes(self.user_data, 'utf-8')).decode('ascii') if self.user_data else None,
                 InstanceType=self.instance_type,
                 Placement=self._remove_none_opts(
                     AvailabilityZone=self.placement,
