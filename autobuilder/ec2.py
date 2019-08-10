@@ -1,6 +1,7 @@
 import re
 import os
 import base64
+import datetime
 from buildbot.plugins import worker
 from buildbot.worker import AbstractLatentWorker
 import boto3
@@ -275,11 +276,16 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                 IamInstanceProfile=self._remove_none_opts(
                     Name=self.instance_profile_name,
                 )
-            )
+            ),
+            ValidUntil=datetime.datetime.now() + datetime.timedelta(seconds=60)
         )
         reservation = reservations['SpotInstanceRequests'][0]
         spotWaiter = self.ec2.meta.client.get_waiter('spot_instance_request_fulfilled')
-        spotWaiter.wait(SpotInstanceRequestIds=[reservation['SpotInstanceRequestId']])
+        try:
+            spotWaiter.wait(SpotInstanceRequestIds=[reservation['SpotInstanceRequestId']],
+                            WaiterConfig={Delay: 5, MaxAttempts: 6})
+        except botocore.exceptions.WaiterError:
+            pass
         request, success = self._wait_for_request(reservation)
         if not success:
             raise LatentWorkerFailedToSubstantiate()
