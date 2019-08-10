@@ -283,7 +283,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         spotWaiter = self.ec2.meta.client.get_waiter('spot_instance_request_fulfilled')
         try:
             spotWaiter.wait(SpotInstanceRequestIds=[reservation['SpotInstanceRequestId']],
-                            WaiterConfig={Delay: 5, MaxAttempts: 6})
+                            WaiterConfig={'Delay': 5, 'MaxAttempts': 6})
         except botocore.exceptions.WaiterError:
             pass
         request, success = self._wait_for_request(reservation)
