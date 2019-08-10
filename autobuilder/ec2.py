@@ -277,6 +277,8 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                 )
             )
         )
+        spotWaiter = self.ec2.meta.client.get_waiter('spot_instance_request_fulfilled')
+        spotWaiter.wait(SpotInstanceRequestIds=[reservation['SpotInstanceRequestId']])
         request, success = self._wait_for_request(
             reservations['SpotInstanceRequests'][0])
         if not success:

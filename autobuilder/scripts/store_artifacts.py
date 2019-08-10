@@ -19,9 +19,10 @@ from autobuilder.utils import process
 __version__ = '0.1.0'
 
 log = Log(__name__)
+workdir = None
 
 
-# noinspection PyBroadException
+# noinspection PyBroadException,DuplicatedCode,DuplicatedCode
 def copy_recursive(topdir, subdir, s3, destpath, filepat=None, tarball=False):
     """
     Walks a subdirectory under the build directory and copies all matching

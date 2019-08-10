@@ -252,7 +252,7 @@ class AutobuilderEC2Worker(AutobuilderWorker):
     def userdata(self):
         ctx = {'workername': self.name,
                'workersecret': self.password,
-               'master_ip': self.master_ip_address }
+               'master_ip': self.master_ip_address}
         if self.userdata_extra_context:
             ctx.update(self.userdata_extra_context)
         if self.userdata_template:
@@ -260,6 +260,7 @@ class AutobuilderEC2Worker(AutobuilderWorker):
         return 'WORKERNAME="{}"\nWORKERSECRET="{}"\nMASTER="{}"\n'.format(self.name,
                                                                           self.password,
                                                                           self.master_ip_address)
+
 
 def get_project_for_url(repo_url, branch):
     for abcfg in settings.settings_dict():
