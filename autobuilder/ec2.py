@@ -208,7 +208,12 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         self.classic_security_groups = [
             self.security_name] if self.security_name else None
         self.instance_profile_name = instance_profile_name
-        self.tags = tags
+
+        self.tags = {}
+        self.tag_specs = [{'ResourceType': 'instance', 'Tags': []}]
+        for k, v in tags.items():
+            self.tag_specs[0]['Tags'].append({'Key': k, 'Value': v})
+
         self.block_device_map = self.create_block_device_mapping(
             block_device_map) if block_device_map else None
 
@@ -226,7 +231,8 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             IamInstanceProfile=self._remove_none_opts(
                 Name=self.instance_profile_name,
             ),
-            BlockDeviceMappings=self.block_device_map
+            BlockDeviceMappings=self.block_device_map,
+            TagSpecifications=self.tag_specs
         )
 
         launch_opts = self._remove_none_opts(launch_opts)
