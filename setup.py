@@ -16,13 +16,13 @@ setup(
     package_data={
         'autobuilder': ['templates/*.txt']
     },
-    install_requires=['buildbot[tls]>=2.4.0',
-                      'buildbot-worker>=2.4.0',
-                      'buildbot-www>=2.4.0',
-                      'buildbot-console-view>=2.4.0',
-                      'buildbot-grid-view>=2.4.0',
-                      'buildbot-waterfall-view>=2.4.0'
-                      'buildbot-badges>=2.4.0',
+    install_requires=['buildbot[tls]>=2.4.1',
+                      'buildbot-worker>=2.4.1',
+                      'buildbot-www>=2.4.1',
+                      'buildbot-console-view>=2.4.1',
+                      'buildbot-grid-view>=2.4.1',
+                      'buildbot-waterfall-view>=2.4.1'
+                      'buildbot-badges>=2.4.1',
                       'boto3', 'botocore',
                       'treq', 'twisted',
                       'python-dateutil',
