@@ -16,10 +16,9 @@ from autobuilder.utils.logutils import Log
 from autobuilder.utils import s3session
 from autobuilder.utils import process
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 log = Log(__name__)
-workdir = None
 
 
 # noinspection PyBroadException,DuplicatedCode,DuplicatedCode
@@ -68,7 +67,7 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None, tarball=False):
     if tarball:
         flname = filelist.name
         filelist.close()
-        tarballname = os.path.join(workdir, os.path.basename(subdir) + '.tar.gz')
+        tarballname = os.path.join(topdir, os.path.basename(subdir) + '.tar.gz')
         try:
             cmd = ['tar', '-c', '-C', root, '--files-from', flname, '-z', '-f', tarballname]
             if log.verbosity or log.debug_level > 0:
@@ -107,7 +106,6 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None, tarball=False):
 
 def main():
     global log
-    global workdir
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--pull-request',
                         help='store artifacts of a PR build',
@@ -136,7 +134,6 @@ def main():
                         action='store', default=os.getenv("BUILDDIR"))
     args = parser.parse_args()
     log.set_level(args.debug, args.verbose)
-    workdir = args.builddir
     if not args.artifacts:
         log.plain('No artifacts requested, exiting')
         return 0
