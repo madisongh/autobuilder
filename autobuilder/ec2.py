@@ -11,6 +11,10 @@ from twisted.python import log
 
 
 class MyEC2LatentWorker(worker.EC2LatentWorker):
+    # Default quarantine timeout intervals are much too short for EC2.
+    quarantine_timeout = quarantine_initial_timeout = 15 * 60
+    quarantine_max_timeout = 24 * 60 * 60
+
     def __init__(self, name, password, instance_type, ami=None,
                  valid_ami_owners=None, valid_ami_location_regex=None,
                  elastic_ip=None, identifier=None, secret_identifier=None,
