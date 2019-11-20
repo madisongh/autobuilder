@@ -157,13 +157,14 @@ class DistroImage(BuildFactory):
                                method='clobber',
                                doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
                                hideStepIf=lambda results, step: results == bbres.SKIPPED))
-        self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
-                                  branch=branch, codebase=codebase,
-                                  name='git-checkout-pullrequest-ref',
-                                  mode=('full' if submodules else 'incremental'),
-                                  method='clobber',
-                                  doStepIf=lambda step: is_pull_request(step.build.getProperties()),
-                                  hideStepIf=lambda results, step: results == bbres.SKIPPED))
+        if 'github.com' in repourl:
+            self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
+                                      branch=branch, codebase=codebase,
+                                      name='git-checkout-pullrequest-ref',
+                                      mode=('full' if submodules else 'incremental'),
+                                      method='clobber',
+                                      doStepIf=lambda step: is_pull_request(step.build.getProperties()),
+                                      hideStepIf=lambda results, step: results == bbres.SKIPPED))
         env_vars = ENV_VARS.copy()
         # First, remove duplicates from PATH,
         # then strip out the virtualenv bin directory if we're in a virtualenv.
