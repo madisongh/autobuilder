@@ -544,7 +544,7 @@ class AutobuilderConfig(object):
                      'repourl': self.repos[d.reponame].uri,
                      'branch': d.branch,
                      'setup_script': d.setup_script,
-                     'artifacts': ' '.join(d.artifacts),
+                     'artifacts': ','.join(d.artifacts),
                      'autobuilder': self.name,
                      'distro': d.name,
                      'buildnum_template': d.buildnum_template,
