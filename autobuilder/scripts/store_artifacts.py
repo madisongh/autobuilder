@@ -2,6 +2,8 @@
 # Copyright 2019 by Matthew Madison
 # Distributed under license.
 
+import asyncio
+import json
 import os
 import sys
 import re
@@ -15,10 +17,51 @@ from datetime import date, timedelta
 from autobuilder.utils.logutils import Log
 from autobuilder.utils import s3session
 from autobuilder.utils import process
+import botocore
+from aws_secretsmanager_caching import SecretCache, SecretCacheConfig
 
 __version__ = '0.1.1'
 
 log = Log(__name__)
+
+
+class MenderSession(object):
+    def __init__(self):
+        self.logged_in = False
+
+    def login(self):
+        client = botocore.session.get_session().create_client('secretsmanager')
+        cache = SecretCache(config=SecretCacheConfig(), client=client)
+        pwent = cache.get_secret_string('hosted.mender.io')
+        pwdict = json.loads(pwent)
+        cmd = ['mender-cli', '--server', 'https://hosted.mender.io', 'login',
+               '--username', pwdict['username'], '--password', pwdict['password']]
+        try:
+            output, errors = process.run(cmd)
+            log.verbose(output.rstrip())
+        except (process.CmdError, process.NotFoundError) as err:
+            log.error("%s" % err)
+        except process.ExecutionError as err:
+            log.error("%s" % err.stderr)
+        self.logged_in = True
+
+    def upload(self, filename, description=None):
+        if not self.logged_in:
+            self.login()
+        if not self.logged_in:
+            log.error("login failed, skipping upload for %s" % filename)
+            return
+        if not description:
+            description = os.path.splitext(os.path.basename(filename))[0]
+        cmd = ['mender-cli', '--server', 'https://hosted.mender.io', 'artifacts', 'upload',
+               '--no-progress', '--description', description, filename]
+        try:
+            output, errors = process.run(cmd)
+            log.verbose(output.rstrip())
+        except (process.CmdError, process.NotFoundError) as err:
+            log.error("%s" % err)
+        except process.ExecutionError as err:
+            log.error("%s" % err.stderr)
 
 
 # noinspection PyBroadException,DuplicatedCode,DuplicatedCode
@@ -31,6 +74,7 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None, tarball=False):
 
     Returns the number of files copied.
     """
+    mendersession = None
     filelist = None
     if tarball:
         filelist = tempfile.NamedTemporaryFile(mode='w', encoding='latin-1', delete=False)
@@ -46,8 +90,20 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None, tarball=False):
                 continue
             localfile = os.path.join(dirpath, filename)
             if os.path.islink(localfile):
+                if filename.endswith('.mender'):
+                    if mendersession is None:
+                        mendersession = MenderSession()
+                    desc = os.path.splitext(filename)[0]
+                    machine = dirpath[len(root) + 1:]
+                    if len(machine) > 0 and desc.endswith(machine):
+                        desc = desc[:len(desc) - len(machine) - 1]
+                    mendersession.upload(localfile, description=desc)
+                    copy_count += 1
                 continue
-            relpath = localfile[len(root)+1:]
+            elif filename.endswith('.mender'):
+                # We use the symlinks for mender uploads
+                continue
+            relpath = localfile[len(root) + 1:]
 
             copy_count += 1
             if tarball:
@@ -55,7 +111,7 @@ def copy_recursive(topdir, subdir, s3, destpath, filepat=None, tarball=False):
             elif s3:
                 s3.upload(localfile, destpath + "/" + relpath)
                 log.verbose('Uploaded %s -> %s' % (localfile, destpath + "/" + relpath))
-            else:
+            elif destpath:
                 full_destpath = os.path.join(destpath, relpath)
                 os.makedirs(os.path.dirname(full_destpath), exist_ok=True)
                 try:
@@ -153,6 +209,9 @@ def main():
     for artifact in args.artifacts.lower().split(','):
         if artifact == 'images':
             copy_recursive(args.builddir, 'tmp/deploy/images', s3, destpath + "/images")
+            continue
+        if artifact == 'mender-only':
+            copy_recursive(args.builddir, 'tmp/deploy/images', None, None, filepat=r'.*\.mender$')
             continue
         if artifact == 'stamps':
             copy_recursive(args.builddir, 'tmp/stamps', s3, destpath,

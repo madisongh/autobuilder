@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='autobuilder',
-    version='2.2.1',
+    version='2.3.0',
     packages=find_packages(),
     license='MIT',
     author='Matt Madison',
@@ -16,7 +16,8 @@ setup(
     package_data={
         'autobuilder': ['templates/*.txt']
     },
-    install_requires=['buildbot[tls]>=2.4.1',
+    install_requires=['aws-secretsmanager-caching',
+                      'buildbot[tls]>=2.4.1',
                       'buildbot-worker>=2.4.1',
                       'buildbot-www>=2.4.1',
                       'buildbot-console-view>=2.4.1',
