@@ -13,7 +13,7 @@ import urllib
 import shutil
 import tempfile
 import autobuilder.utils.locks as locks
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from autobuilder.utils.logutils import Log
 from autobuilder.utils import s3session
 from autobuilder.utils import process
@@ -65,7 +65,10 @@ class MenderSession(object):
                    '-F', "artifact=@{}".format(filename),
                    'https://hosted.mender.io/api/management/v1/deployments/artifacts']
         try:
+            log.verbose("Uploading %s to mender..." % filename)
+            starttime = datetime.utcnow()
             output, errors = process.run(cmd)
+            log.verbose("Upload time: {}".format(datetime.utcnow() - starttime))
             log.verbose(output.rstrip())
         except (process.CmdError, process.NotFoundError) as err:
             log.error("%s" % err)
