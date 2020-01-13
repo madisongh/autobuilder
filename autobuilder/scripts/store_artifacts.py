@@ -28,24 +28,30 @@ log = Log(__name__)
 class MenderSession(object):
     def __init__(self):
         self.logged_in = False
+        self.jwt = None
 
     def login(self):
         client = botocore.session.get_session().create_client('secretsmanager')
         cache = SecretCache(config=SecretCacheConfig(), client=client)
         pwent = cache.get_secret_string('hosted.mender.io')
         pwdict = json.loads(pwent)
-        cmd = ['mender-cli', '--server', 'https://hosted.mender.io', 'login',
-               '--username', pwdict['username'], '--password', pwdict['password']]
+        cmd = ['curl', '-X', 'POST', '-u', "%s:%s" % (pwdict['username'], pwdict['password']),
+               'https://hosted.mender.io/api/management/v1/useradm/auth/login']
         try:
-            output, errors = process.run(cmd)
-            log.verbose(output.rstrip())
+            output, _ = process.run(cmd)
+            self.jwt = output.rstrip()
+            self.logged_in = True
         except (process.CmdError, process.NotFoundError) as err:
             log.error("%s" % err)
         except process.ExecutionError as err:
             log.error("%s" % err.stderr)
-        self.logged_in = True
 
     def upload(self, filename, description=None):
+        try:
+            st = os.stat(filename)
+        except OSError as err:
+            log.error("%s" % err)
+            return
         if not self.logged_in:
             self.login()
         if not self.logged_in:
@@ -53,8 +59,11 @@ class MenderSession(object):
             return
         if not description:
             description = os.path.splitext(os.path.basename(filename))[0]
-        cmd = ['mender-cli', '--server', 'https://hosted.mender.io', 'artifacts', 'upload',
-               '--no-progress', '--description', description, filename]
+        cmd = ['curl', '-X', 'POST', '-H', "Authorization: Bearer {}".format(self.jwt),
+                   '-F', "size={}".format(st.st_size),
+                   '-F', "description={}".format(description),
+                   '-F', "artifact=@{}".format(filename),
+                   'https://hosted.mender.io/api/management/v1/deployments/artifacts']
         try:
             output, errors = process.run(cmd)
             log.verbose(output.rstrip())
