@@ -147,7 +147,7 @@ def datestamp(props):
 
 class DistroImage(BuildFactory):
     def __init__(self, repourl, submodules=False, branch='master',
-                 codebase='', imageset=None):
+                 codebase='', imageset=None, extra_env=None):
         BuildFactory.__init__(self)
         self.addStep(steps.SetProperty(property='datestamp', value=datestamp))
         self.addStep(steps.Git(repourl=repourl, submodules=submodules,
@@ -166,6 +166,8 @@ class DistroImage(BuildFactory):
                                       doStepIf=lambda step: is_pull_request(step.build.getProperties()),
                                       hideStepIf=lambda results, step: results == bbres.SKIPPED))
         env_vars = ENV_VARS.copy()
+        if extra_env:
+            env_vars.update(extra_env)
         # First, remove duplicates from PATH,
         # then strip out the virtualenv bin directory if we're in a virtualenv.
         setup_cmd = 'PATH=`echo -n "$PATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \

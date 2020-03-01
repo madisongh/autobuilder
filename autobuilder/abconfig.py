@@ -106,7 +106,8 @@ class Distro(object):
                  weekly_type=None,
                  push_type='__default__',
                  pullrequest_type=None,
-                 extra_config=None):
+                 extra_config=None,
+                 extra_env=None):
         self.name = name
         self.reponame = reponame
         self.branch = branch
@@ -147,6 +148,7 @@ class Distro(object):
         else:
             self.pullrequest_type = None
         self.extra_config = extra_config or ''
+        self.extra_env = extra_env
 
     def codebases(self, repos):
         cbdict = {self.reponame: {'repository': repos[self.reponame].uri}}
@@ -559,7 +561,8 @@ class AutobuilderConfig(object):
                                                             submodules=repo.submodules,
                                                             branch=d.branch,
                                                             codebase=d.reponame,
-                                                            imageset=imgset))
+                                                            imageset=imgset,
+                                                            extra_env=d.extra_env))
                   for imgset in d.targets]
         return b
 
