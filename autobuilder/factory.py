@@ -181,6 +181,7 @@ class DistroImage(BuildFactory):
                                            descriptionDone=['Removed', 'old', 'build', 'directory']))
         self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c',
                                                            util.Interpolate(setup_cmd)],
+                                                  env=extra_env,
                                                   extract_fn=extract_env_vars,
                                                   name='EnvironmentSetup',
                                                   description=['Running', 'setup', 'script'],
