@@ -1,8 +1,10 @@
 from setuptools import setup, find_packages
 
+BUILDBOTVERSION = '2.7.0'
+
 setup(
     name='autobuilder',
-    version='2.3.2',
+    version='2.4.0',
     packages=find_packages(),
     license='MIT',
     author='Matt Madison',
@@ -17,13 +19,13 @@ setup(
         'autobuilder': ['templates/*.txt']
     },
     install_requires=['aws-secretsmanager-caching',
-                      'buildbot[tls]>=2.4.1',
-                      'buildbot-worker>=2.4.1',
-                      'buildbot-www>=2.4.1',
-                      'buildbot-console-view>=2.4.1',
-                      'buildbot-grid-view>=2.4.1',
-                      'buildbot-waterfall-view>=2.4.1'
-                      'buildbot-badges>=2.4.1',
+                      'buildbot[tls]>=' + BUILDBOTVERSION,
+                      'buildbot-worker>=' + BUILDBOTVERSION,
+                      'buildbot-www>=' + BUILDBOTVERSION,
+                      'buildbot-console-view>=' + BUILDBOTVERSION,
+                      'buildbot-grid-view>=' + BUILDBOTVERSION,
+                      'buildbot-waterfall-view>=' + BUILDBOTVERSION,
+                      'buildbot-badges>=' + BUILDBOTVERSION,
                       'boto3', 'botocore',
                       'treq', 'twisted',
                       'python-dateutil',
