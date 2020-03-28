@@ -290,7 +290,8 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                     ImageId=self.ami,
                     KeyName=self.keypair_name,
                     SecurityGroups=self.classic_security_groups,
-                    UserData=base64.b64encode(bytes(self.user_data, 'utf-8')).decode('ascii') if self.user_data else None,
+                    UserData=(base64.b64encode(bytes(self.user_data, 'utf-8')).decode('ascii')
+                              if self.user_data else None),
                     InstanceType=instance_type,
                     Placement=self._remove_none_opts(
                         AvailabilityZone=self.placement,

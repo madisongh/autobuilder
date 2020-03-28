@@ -183,8 +183,10 @@ class EC2Params(object):
                  region=None, subnet=None, elastic_ip=None, tags=None,
                  scratchvol=False, scratchvol_params=None,
                  instance_profile_name=None, spot_instance=False,
-                 max_spot_price=None, price_multiplier=None):
+                 max_spot_price=None, price_multiplier=None,
+                 instance_types=None):
         self.instance_type = instance_type
+        self.instance_types = instance_types
         self.ami = ami
         self.keypair = keypair
         self.region = region
@@ -198,9 +200,25 @@ class EC2Params(object):
             self.scratchvolparams = None
         self.instance_profile_name = instance_profile_name
         self.spot_instance = spot_instance
-        if self.spot_instance and max_spot_price is None and price_multiplier is None:
-            raise ValueError('You must provide either max_spot_price, or '
-                             'price_multiplier, or both, to use spot instances')
+        if self.spot_instance:
+            if max_spot_price is None and price_multiplier is None:
+                raise ValueError('You must provide either max_spot_price, or '
+                                 'price_multiplier, or both, to use spot instances')
+            if instance_type:
+                if instance_types:
+                    raise ValueError('Specify only one of instance_type, instance_types '
+                                     'for spot instances')
+                self.instance_types = [instance_type]
+                self.instance_type = None
+            else:
+                if not instance_types:
+                    raise ValueError('Missing instance_types for spot instance worker config')
+        else:
+            if instance_types:
+                raise ValueError('instance_types only valid for spot instance worker configs')
+            if not instance_type:
+                raise ValueError('Invalid instance_type')
+
         self.max_spot_price = max_spot_price
         self.price_multiplier = price_multiplier
 
@@ -440,7 +458,9 @@ class AutobuilderConfig(object):
                                                       tags=w.ec2tags,
                                                       block_device_map=w.ec2_dev_mapping,
                                                       spot_instance=w.ec2params.spot_instance,
-                                                      max_spot_price=w.ec2params.max_spot_price))
+                                                      max_spot_price=w.ec2params.max_spot_price,
+                                                      price_multiplier=w.ec2params.price_multiplier,
+                                                      instance_types=w.ec2params.instance_types))
             else:
                 self.workers.append(worker.Worker(w.name, w.password, max_builds=w.max_builds))
             self.worker_cfgs[w.name] = w
