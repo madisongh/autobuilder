@@ -269,14 +269,33 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             self.failed_to_start(self.instance.id, self.instance.state['Name'])
         return None
 
+    def _bid_price_from_spot_price_history(self, instance_type):
+        timestamp_yesterday = time.gmtime(int(time.time() - 86400))
+        spot_history_starttime = time.strftime(
+            '%Y-%m-%dT%H:%M:%SZ', timestamp_yesterday)
+        spot_prices = self.ec2.meta.client.describe_spot_price_history(
+            StartTime=spot_history_starttime,
+            ProductDescriptions=[self.product_description],
+            AvailabilityZone=self.placement)
+        price_sum = 0.0
+        price_count = 0
+        for price in spot_prices['SpotPriceHistory']:
+            if price['InstanceType'] == instance_type:
+                price_sum += float(price['SpotPrice'])
+                price_count += 1
+        if price_count == 0:
+            bid_price = 0.02
+        else:
+            bid_price = (price_sum / price_count) * self.price_multiplier
+        return bid_price, price_count
+
     def _request_spot_instance(self):
         for instance_type in self.instance_types:
             if self.price_multiplier is None:
                 bid_price = self.max_spot_price
             else:
-                bid_price = self._bid_price_from_spot_price_history()
-                # HACK: 0.02 hard-coded value means history request returned zero entries
-                if bid_price == 0.02:
+                bid_price, count = self._bid_price_from_spot_price_history(instance_type)
+                if count == 0:
                     log.msg("{} {} no price history for {} in {}".format(
                             self.__class__.__name__, self.workername, instance_type, self.placement))
                     continue
