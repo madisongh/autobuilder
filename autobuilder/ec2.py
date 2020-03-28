@@ -26,6 +26,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                  product_description='Linux/UNIX',
                  subnet_id=None, security_group_ids=None, instance_profile_name=None,
                  block_device_map=None, session=None,
+                 instance_types=None,
                  **kwargs):
 
         if volumes is None:
@@ -33,6 +34,21 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
 
         if tags is None:
             tags = {}
+
+        if spot_instance:
+            if instance_types is None:
+                if instance_type:
+                    self.instance_types = [instance_type]
+                else:
+                    raise ValueError('one of instance_type or instance_types must be provided')
+            else:
+                if instance_type:
+                    raise ValueError('only one of instance_type or instance_types should be provided')
+                else:
+                    self.instance_types = instance_types
+        else:
+            if instance_types:
+                raise ValueError('instance_types only valid for spot_instance workers')
 
         # noinspection PyCallByClass
         AbstractLatentWorker.__init__(self, name, password, **kwargs)
@@ -250,51 +266,69 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             return [instance_id, image.id, start_time]
         else:
             self.failed_to_start(self.instance.id, self.instance.state['Name'])
+        return None
 
     def _request_spot_instance(self):
-        if self.price_multiplier is None:
-            bid_price = self.max_spot_price
-        else:
-            bid_price = self._bid_price_from_spot_price_history()
+        for instance_type in self.instance_types:
+            if self.price_multiplier is None:
+                bid_price = self.max_spot_price
+            else:
+                bid_price = self._bid_price_from_spot_price_history()
+                # HACK: 0.02 hard-coded value means history request returned zero entries
+                if bid_price == 0.02:
+                    log.msg("{} {} no price history for {} in {}",
+                            self.__class__.__name__, self.workername, instance_type, self.placement)
+                    continue
             if self.max_spot_price is not None \
                and bid_price > self.max_spot_price:
                 bid_price = self.max_spot_price
-        log.msg('%s %s requesting spot instance with price %0.4f' %
-                (self.__class__.__name__, self.workername, bid_price))
-        reservations = self.ec2.meta.client.request_spot_instances(
-            SpotPrice=str(bid_price),
-            LaunchSpecification=self._remove_none_opts(
-                ImageId=self.ami,
-                KeyName=self.keypair_name,
-                SecurityGroups=self.classic_security_groups,
-                UserData=base64.b64encode(bytes(self.user_data, 'utf-8')).decode('ascii') if self.user_data else None,
-                InstanceType=self.instance_type,
-                Placement=self._remove_none_opts(
-                    AvailabilityZone=self.placement,
+            log.msg('%s %s requesting spot instance with price %0.4f' %
+                    (self.__class__.__name__, self.workername, bid_price))
+            reservations = self.ec2.meta.client.request_spot_instances(
+                SpotPrice=str(bid_price),
+                LaunchSpecification=self._remove_none_opts(
+                    ImageId=self.ami,
+                    KeyName=self.keypair_name,
+                    SecurityGroups=self.classic_security_groups,
+                    UserData=base64.b64encode(bytes(self.user_data, 'utf-8')).decode('ascii') if self.user_data else None,
+                    InstanceType=instance_type,
+                    Placement=self._remove_none_opts(
+                        AvailabilityZone=self.placement,
+                    ),
+                    NetworkInterfaces=[{'AssociatePublicIpAddress': True,
+                                        'DeviceIndex': 0,
+                                        'Groups': self.security_group_ids,
+                                        'SubnetId': self.subnet_id}],
+                    BlockDeviceMappings=self.block_device_map,
+                    IamInstanceProfile=self._remove_none_opts(
+                        Name=self.instance_profile_name,
+                    )
                 ),
-                NetworkInterfaces=[{'AssociatePublicIpAddress': True,
-                                    'DeviceIndex': 0,
-                                    'Groups': self.security_group_ids,
-                                    'SubnetId': self.subnet_id}],
-                BlockDeviceMappings=self.block_device_map,
-                IamInstanceProfile=self._remove_none_opts(
-                    Name=self.instance_profile_name,
-                )
-            ),
-            ValidUntil=datetime.datetime.now() + datetime.timedelta(seconds=60)
-        )
-        reservation = reservations['SpotInstanceRequests'][0]
-        spotWaiter = self.ec2.meta.client.get_waiter('spot_instance_request_fulfilled')
-        try:
-            spotWaiter.wait(SpotInstanceRequestIds=[reservation['SpotInstanceRequestId']],
-                            WaiterConfig={'Delay': 5, 'MaxAttempts': 6})
-        except botocore.exceptions.WaiterError:
-            pass
-        request, success = self._wait_for_request(reservation)
-        if not success:
-            raise LatentWorkerFailedToSubstantiate()
-        instance_id = request['InstanceId']
-        self.instance = self.ec2.Instance(instance_id)
-        image = self.get_image()
-        instance_id, start_time = self._wait_for_instance()
-        return instance_id, image.id, start_time
+                ValidUntil=datetime.datetime.now() + datetime.timedelta(seconds=60)
+            )
+            reservation = reservations['SpotInstanceRequests'][0]
+            spotWaiter = self.ec2.meta.client.get_waiter('spot_instance_request_fulfilled')
+            try:
+                spotWaiter.wait(SpotInstanceRequestIds=[reservation['SpotInstanceRequestId']],
+                                WaiterConfig={'Delay': 5, 'MaxAttempts': 6})
+            except botocore.exceptions.WaiterError:
+                pass
+            try:
+                request, success = self._wait_for_request(reservation)
+                if not success:
+                    log.msg('{} {} spot request not successful',
+                            self.__class__.__name__, self.workername)
+                    continue
+            except LatentWorkerFailedToSubstantiate as e:
+                reqid, status = e.args
+                log.msg('{} {} spot request {} rejected: {}',
+                        self.__class__.__name__, self.workername, reqid, status)
+                continue
+
+            instance_id = request['InstanceId']
+            self.instance = self.ec2.Instance(instance_id)
+            image = self.get_image()
+            instance_id, start_time = self._wait_for_instance()
+            return instance_id, image.id, start_time
+        raise LatentWorkerFailedToSubstantiate(self.workername, "exhausted instance types")
+
