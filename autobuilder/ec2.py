@@ -2,6 +2,7 @@ import re
 import os
 import base64
 import datetime
+import time
 from buildbot.plugins import worker
 from buildbot.worker import AbstractLatentWorker
 from buildbot.interfaces import LatentWorkerFailedToSubstantiate
