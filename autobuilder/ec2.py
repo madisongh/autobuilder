@@ -4,6 +4,7 @@ import base64
 import datetime
 from buildbot.plugins import worker
 from buildbot.worker import AbstractLatentWorker
+from buildbot.interfaces import LatentWorkerFailedToSubstantiate
 import boto3
 import botocore
 from botocore.client import ClientError
@@ -276,8 +277,8 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                 bid_price = self._bid_price_from_spot_price_history()
                 # HACK: 0.02 hard-coded value means history request returned zero entries
                 if bid_price == 0.02:
-                    log.msg("{} {} no price history for {} in {}",
-                            self.__class__.__name__, self.workername, instance_type, self.placement)
+                    log.msg("{} {} no price history for {} in {}".format(
+                            self.__class__.__name__, self.workername, instance_type, self.placement))
                     continue
             if self.max_spot_price is not None \
                and bid_price > self.max_spot_price:
@@ -317,13 +318,13 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             try:
                 request, success = self._wait_for_request(reservation)
                 if not success:
-                    log.msg('{} {} spot request not successful',
-                            self.__class__.__name__, self.workername)
+                    log.msg('{} {} spot request not successful'.format(
+                            self.__class__.__name__, self.workername))
                     continue
             except LatentWorkerFailedToSubstantiate as e:
                 reqid, status = e.args
-                log.msg('{} {} spot request {} rejected: {}',
-                        self.__class__.__name__, self.workername, reqid, status)
+                log.msg('{} {} spot request {} rejected: {}'.format(
+                        self.__class__.__name__, self.workername, reqid, status))
                 continue
 
             instance_id = request['InstanceId']
