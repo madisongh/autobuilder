@@ -24,7 +24,7 @@ class S3Session(object):
         try:
             self.s3client.upload_file(Bucket=self.bucket, Key=Key, Filename=Filename)
         except botocore.exceptions.ClientError as e:
-            err = e.repsonse['Error']
+            err = e.response['Error']
             self.log.warn("{}/{}: {} {}".format(self.bucket, Key, err['Code'], err['Message']))
             return False
         return True

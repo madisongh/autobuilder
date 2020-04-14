@@ -83,11 +83,7 @@ class Log:
         Logs output only when the current debug level
         is >= the level specified in the call.
         """
-        try:
-            basestring
-        except NameError:
-            basestring = str
-        if isinstance(level, basestring):
+        if isinstance(level, str):
             args = (level,) + args
             level = 1
         self.mylog.log(logging.DEBUG - level + 1, *args)

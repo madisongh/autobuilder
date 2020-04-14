@@ -25,11 +25,7 @@ class CmdError(RuntimeError):
 
     # noinspection PyUnboundLocalVariable
     def __str__(self):
-        try:
-            basestring
-        except NameError:
-            basestring = str
-        if not isinstance(self.command, basestring):
+        if not isinstance(self.command, str):
             cmd = subprocess.list2cmdline(self.command)
         else:
             cmd = self.command
@@ -84,19 +80,12 @@ def run(cmd, input=None, errignore=False, **options):
     """Convenience function to run a command and return its output, raising an
     exception when the command fails"""
 
-    try:
-        # noinspection PyUnboundLocalVariable
-        basestring
-    except NameError:
-        basestring = str
-
-    if isinstance(cmd, basestring) and "shell" not in options:
+    if isinstance(cmd, str) and "shell" not in options:
         options["shell"] = True
 
     try:
         pipe = Popen(cmd, **options)
-    except OSError:
-        exc = sys.exc_info()[0]
+    except OSError as exc:
         if exc.errno == 2:
             raise NotFoundError(cmd)
         else:
