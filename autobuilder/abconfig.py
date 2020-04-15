@@ -5,6 +5,7 @@ import os
 import string
 import time
 import logging
+import socket
 from random import SystemRandom
 from dateutil.parser import parse as dateparse
 from twisted.internet import defer
@@ -225,6 +226,8 @@ class EC2Params(object):
 
 class AutobuilderEC2Worker(AutobuilderWorker):
     master_ip_address = os.getenv('MASTER_IP_ADDRESS')
+    master_hostname = socket.gethostname()
+    master_fqdn = socket.getaddrinfo(master_hostname, 0, flags=socket.AI_CANONNAME)[0][3]
 
     def __init__(self, name, password, ec2params, conftext=None, max_builds=1,
                  userdata_template_dir=None, userdata_template_file='cloud-init.txt',
@@ -272,7 +275,11 @@ class AutobuilderEC2Worker(AutobuilderWorker):
     def userdata(self):
         ctx = {'workername': self.name,
                'workersecret': self.password,
-               'master_ip': self.master_ip_address}
+               'master_ip': self.master_ip_address,
+               'master_hostname': self.master_hostname,
+               'master_fqdn': self.master_fqdn,
+               'extra_packages': [],
+               'extra_cmds': []}
         if self.userdata_extra_context:
             ctx.update(self.userdata_extra_context)
         if self.userdata_template:
