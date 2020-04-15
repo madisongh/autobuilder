@@ -35,11 +35,6 @@ packages:
     - pylint3
     - xterm
     - emacs
-    - awscli
-    - python3-boto3
-    - python3-botocore
-    - python3-buildbot-worker
-    - python3-s3transfer
     - curl
     {% for pkg in extra_packages %}
     - {{ pkg }}
@@ -51,6 +46,7 @@ users:
       gecos: Auto Builder
       lock_passwd: true
       uid: "2000"
+      shell: /bin/bash
 
 write_files:
     - content: |
@@ -65,6 +61,9 @@ write_files:
       append: true
 
 runcmd:
+    - python3 -m pip install awscli
+    - python3 -m pip install boto3
+    - python3 -m pip install buildbot-worker
     - python3 -m pip install https://github.com/madisongh/buildworker-scripts/releases/download/v0.1.0-pre2/buildworker_scripts-0.1.0-py3-none-any.whl
     - python3 -m pip install https://github.com/madisongh/git-credential-aws-secrets/releases/download/v0.0.2/git_credential_aws_secrets-0.0.2-py3-none-any.whl
     - mkdir /var/lib/bwsetup
