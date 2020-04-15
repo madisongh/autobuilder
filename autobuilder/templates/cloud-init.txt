@@ -53,7 +53,7 @@ write_files:
         WORKERNAME="{{ workername }}"
         WORKERSECRET="{{ workersecret }}"
         MASTER="{{ master_ip }}"
-      path: /run/buildworker-settings
+      path: /run/buildworker/settings
       permissions: '0600'
     - content: |
         {{ master_ip }} {{ master_hostname }} {{ master_fqdn }}
