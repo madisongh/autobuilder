@@ -1,8 +1,11 @@
 import os
 import time
-from autobuilder.utils.logutils import Log
+
 import boto3
 import botocore
+import botocore.exceptions
+
+from autobuilder.utils.logutils import Log
 
 
 class S3Session(object):
@@ -43,7 +46,7 @@ class S3Session(object):
             if quiet and err['Code'] == "404":
                 self.log.debug(2, "not found: {}/{}".format(self.bucket, Key))
             else:
-                self.log.warn("{}/{}: {} {}".format(Bucket, Key, err['Code'], err['Message']))
+                self.log.warn("{}/{}: {} {}".format(self.bucket, Key, err['Code'], err['Message']))
             return False
         except OSError as e:
             if quiet:

@@ -3,7 +3,6 @@ Autobuilder configuration class.
 """
 import os
 import string
-import time
 import logging
 import socket
 from random import SystemRandom
@@ -48,43 +47,41 @@ class Repo(object):
 
 
 class ImageSpec(object):
-    def __init__(self, args, name=None, keep_going=False):
+    def __init__(self, args, name=None, machine=None, sdkmachine=None):
         if isinstance(args, str):
             self.args = args.split()
         else:
             self.args = args
         self.name = name
-        self.keep_going = keep_going
-        self.env = {}
+        self.machine = machine
+        self.sdkmachine = sdkmachine
+        if not machine and not sdkmachine:
+            raise ValueError("ImageSpec with no MACHINE or SDKMACHINE setting")
+        self.mcname = machine if machine else 'none-' + sdkmachine
 
 
 class TargetImage(ImageSpec):
-    def __init__(self, machine, args, name=None, keep_going=False):
-        super().__init__(args, name, keep_going)
-        if machine:
-            self.env['MACHINE'] = machine
-            if not self.name:
-                self.name = machine + ':' + '_'.join([a for a in self.args if not a.startswith('-')])
-        elif not self.name:
-            self.name = '_'.join([a for a in self.args if not a.startswith('-')])
+    def __init__(self, machine, args, name=None):
+        if not name:
+            name = machine + ':' + '_'.join([a for a in self.args if not a.startswith('-')])
+        super().__init__(args, name, machine=machine)
 
 
 class SdkImage(ImageSpec):
-    def __init__(self, machine, sdkmachine, args, name=None, keep_going=False):
-        super().__init__(args, name, keep_going)
-        self.env['SDKMACHINE'] = sdkmachine
-        if machine:
-            self.env['MACHINE'] = machine
-            if not self.name:
-                self.name = 'SDK_%s:%s:%s' % (sdkmachine, machine,
-                                              '_'.join([a for a in self.args if not a.startswith('-')]))
-        elif not self.name:
-            self.name = 'SDK_%s:%s' % (sdkmachine, '_'.join([a for a in self.args if not a.startswith('-')]))
+    def __init__(self, machine, sdkmachine, args, name=None):
+        if not name:
+            if machine:
+                name = 'SDK_%s:%s:%s' % (sdkmachine, machine,
+                                         '_'.join([a for a in args if not a.startswith('-')]))
+            else:
+                name = 'SDK_%s:%s' % (sdkmachine, '_'.join([a for a in args if not a.startswith('-')]))
+        super().__init__(args, name, machine, sdkmachine)
 
 
 class TargetImageSet(object):
-    def __init__(self, name, imagespecs=None):
+    def __init__(self, name, imagespecs=None, multiconfig=False):
         self.name = name
+        self.multiconfig = multiconfig
         if imagespecs is None:
             raise RuntimeError('No images defined for %s' % name)
         self.imagespecs = imagespecs
@@ -504,7 +501,7 @@ class AutobuilderConfig(object):
                         branches.add(d.branch)
                 pollers.append(changes.GitPoller(self.repos[r].uri,
                                                  workdir='gitpoller-' + self.repos[r].name,
-                                                 branches=sort(branches),
+                                                 branches=sorted(branches),
                                                  category='push',
                                                  pollinterval=self.repos[r].pollinterval,
                                                  pollAtLaunch=True))

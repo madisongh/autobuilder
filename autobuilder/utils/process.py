@@ -9,9 +9,8 @@
 # Much of this is borrowed from bitbake.
 #
 
-import sys
-import subprocess
 import signal
+import subprocess
 
 
 def subproc_preexec():

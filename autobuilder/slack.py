@@ -1,10 +1,8 @@
-import json
-from twisted.internet import defer
-from twisted.python import log
-
 from buildbot.process.results import CANCELLED, EXCEPTION, FAILURE, SUCCESS, WARNINGS
 from buildbot.reporters.notifier import NotifierBase
 from buildbot.util import httpclientservice
+from twisted.internet import defer
+from twisted.python import log
 
 COLORS = {
     CANCELLED: 'warning',

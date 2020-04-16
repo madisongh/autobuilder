@@ -28,7 +28,7 @@ def get_weekly_slot():
     global LAST_USED_WEEKLY
     try:
         slot = WEEKLY_SLOTS[LAST_USED_WEEKLY + 1]
-        LAST_USED_WEEKLY = LAST_USED_WEEKLY + 1
+        LAST_USED_WEEKLY += 1
     except IndexError:
         raise RuntimeError('too many weekly builds scheduled')
     return slot
