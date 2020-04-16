@@ -47,11 +47,7 @@ class Repo(object):
 
 
 class ImageSpec(object):
-    def __init__(self, args, name=None, machine=None, sdkmachine=None):
-        if isinstance(args, str):
-            self.args = args.split()
-        else:
-            self.args = args
+    def __init__(self, name=None, machine=None, sdkmachine=None):
         self.name = name
         self.machine = machine
         self.sdkmachine = sdkmachine
@@ -63,20 +59,28 @@ class ImageSpec(object):
 
 class TargetImage(ImageSpec):
     def __init__(self, machine, args, name=None):
+        if isinstance(args, str):
+            self.args = args.split()
+        else:
+            self.args = args
         if not name:
-            name = machine + ':' + '_'.join([a for a in args if not a.startswith('-')])
-        super().__init__(args, name, machine=machine)
+            name = machine + ':' + '_'.join([a for a in self.args if not a.startswith('-')])
+        super().__init__(name, machine=machine)
 
 
 class SdkImage(ImageSpec):
     def __init__(self, machine, sdkmachine, args, name=None):
+        if isinstance(args, str):
+            self.args = args.split()
+        else:
+            self.args = args
         if not name:
             if machine:
                 name = 'SDK_%s:%s:%s' % (sdkmachine, machine,
-                                         '_'.join([a for a in args if not a.startswith('-')]))
+                                         '_'.join([a for a in self.args if not a.startswith('-')]))
             else:
-                name = 'SDK_%s:%s' % (sdkmachine, '_'.join([a for a in args if not a.startswith('-')]))
-        super().__init__(args, name, machine, sdkmachine)
+                name = 'SDK_%s:%s' % (sdkmachine, '_'.join([a for a in self.args if not a.startswith('-')]))
+        super().__init__(name, machine, sdkmachine)
         self.is_sdk = True
 
 
