@@ -200,8 +200,8 @@ class DistroImage(BuildFactory):
         if imageset.multiconfig:
             for img in imageset.imagespecs:
                 mcconf = ['DEPLOY_DIR_IMAGE = "${TOPDIR}/tmp/deploy/images/${MACHINE}"',
-                          'STAMPS_DIR = "${TOPDIR}/tmp/stamps"'
-                          'SDK_DEPLOY_forcevariable = "${TOPDIR}/tmp/deploy/sdk"'
+                          'STAMPS_DIR = "${TOPDIR}/tmp/stamps"',
+                          'SDK_DEPLOY_forcevariable = "${TOPDIR}/tmp/deploy/sdk"',
                           'TMPDIR = "${TOPDIR}/tmp-%s"' % img.mcname]
                 if img.machine:
                     mcconf.append('MACHINE="{}"'.format(img.machine))
