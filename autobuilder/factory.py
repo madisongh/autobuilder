@@ -205,7 +205,7 @@ class DistroImage(BuildFactory):
                     mcconf.append('MACHINE="{}"'.format(img.machine))
                 if img.sdkmachine:
                     mcconf.append('SDKMACHINE="{}"'.format(img.sdkmachine))
-                self.addStep(steps.StringDownload(s=mcconf, workerdest="%s.conf" % img.mcname,
+                self.addStep(steps.StringDownload(s='\n'.join(mcconf) + '\n', workerdest="%s.conf" % img.mcname,
                                                   workdir=util.Interpolate("%(prop:BUILDDIR)s/conf/multiconfig"),
                                                   name='make_mc_%s_%s' % (imageset.name, img.mcname),
                                                   description=['Creating', 'multiconfig', imageset.name, img.mcname],
