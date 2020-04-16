@@ -64,7 +64,7 @@ class ImageSpec(object):
 class TargetImage(ImageSpec):
     def __init__(self, machine, args, name=None):
         if not name:
-            name = machine + ':' + '_'.join([a for a in self.args if not a.startswith('-')])
+            name = machine + ':' + '_'.join([a for a in args if not a.startswith('-')])
         super().__init__(args, name, machine=machine)
 
 
