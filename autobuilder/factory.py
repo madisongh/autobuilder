@@ -9,7 +9,6 @@ from buildbot.plugins import steps, util
 from buildbot.process.factory import BuildFactory
 
 from autobuilder import settings
-from autobuilder import TargetImage, SdkImage
 
 ENV_VARS = {'PATH': util.Property('PATH'),
             'BB_ENV_EXTRAWHITE': util.Property('BB_ENV_EXTRAWHITE'),
@@ -212,8 +211,8 @@ class DistroImage(BuildFactory):
                                                   description=['Creating', 'multiconfig', imageset.name, img.mcname],
                                                   descriptionDone=['Created', 'multiconfig',
                                                                    imageset.name, img.mcname]))
-            target_images = [img for img in imageset.imagespecs if isinstance(img, TargetImage)]
-            sdk_images = [img for img in imageset.imagespecs if isinstance(img, SdkImage)]
+            target_images = [img for img in imageset.imagespecs if not img.is_sdk]
+            sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
             if target_images:
                 tgtenv = env_vars.copy()
                 tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
@@ -240,7 +239,7 @@ class DistroImage(BuildFactory):
             for i, img in enumerate(imageset.imagespecs, start=1):
                 tgtenv = env_vars.copy()
                 bbcmd = "bitbake"
-                if isinstance(img, SdkImage):
+                if img.is_sdk:
                     bbcmd += " -c populate_sdk"
                 if img.machine:
                     tgtenv["MACHINE"] = img.machine

@@ -58,6 +58,7 @@ class ImageSpec(object):
         if not machine and not sdkmachine:
             raise ValueError("ImageSpec with no MACHINE or SDKMACHINE setting")
         self.mcname = machine if machine else 'none-' + sdkmachine
+        self.is_sdk = False
 
 
 class TargetImage(ImageSpec):
@@ -76,6 +77,7 @@ class SdkImage(ImageSpec):
             else:
                 name = 'SDK_%s:%s' % (sdkmachine, '_'.join([a for a in args if not a.startswith('-')]))
         super().__init__(args, name, machine, sdkmachine)
+        self.is_sdk = True
 
 
 class TargetImageSet(object):
