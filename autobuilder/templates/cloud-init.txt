@@ -1,7 +1,7 @@
 #cloud-config
 bootcmd:
-    - [ sh, -c, "[ -e /dev/$(lsblk -ndoNAME,MODEL | grep 'Instance Storage' | awk '{print $1}' | head -n1)p1 ] || sgdisk /dev/$(lsblk -ndoNAME,MODEL | grep 'Instance Storage' | awk '{print $1}' | head -n1) --largest-new=0 --typecode=0:8300 && partprobe" ]
-    - [ sh, -c, "[ -e /dev/disk/by-label/SCRATCH ] || mkfs.ext4 -q -F -L SCRATCH -E nodiscard,lazy_itable_init  /dev/$(lsblk -ndoNAME,MODEL | grep 'Instance Storage' | awk '{print $1}' | head -n1)p1" ]
+    - [ sh, -c, "[ -e /dev/disk/by-partlabel/SCRATCH ] || sgdisk /dev/$(lsblk -ndoNAME,MODEL | grep 'Instance Storage' | awk '{print $1}' | head -n1) --largest-new=1 --typecode=1:8300 --change-name=1:SCRATCH && partprobe && sleep 5" ]
+    - [ sh, -c, "[ -e /dev/disk/by-label/SCRATCH ] || mkfs.ext4 -q -F -L SCRATCH -E nodiscard,lazy_itable_init  /dev/disk/by-partlabel/SCRATCH" ]
 
 mounts:
     - [ "LABEL=SCRATCH", "/scratch", "auto", "defaults,noatime,nodiratime,nofail,nosuid,nodev,x-systemd.requires=cloud-init.service", "0", "2" ]
