@@ -200,6 +200,7 @@ class DistroImage(BuildFactory):
         if imageset.multiconfig:
             for img in imageset.imagespecs:
                 mcconf = ['DEPLOY_DIR_MCSHARED = "${TOPDIR}/tmp/deploy"',
+                          'DEPLOY_DIR_MCSHARED[vardepvalue] = "${DEPLOY_DIR_IMAGE}"',
                           'DEPLOY_DIR_IMAGE = "${DEPLOY_DIR_MCSHARED}/images/${MACHINE}"',
                           'DEPLOY_DIR_IMAGE[vardepsexclude] += "DEPLOY_DIR_MCSHARED"',
                           'SDK_DEPLOY_forcevariable = "${DEPLOY_DIR_MCSHARED}/sdk"',
