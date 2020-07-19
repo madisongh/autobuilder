@@ -1,7 +1,10 @@
 #cloud-config
 bootcmd:
-    - [ sh, -c, "[ -e /dev/disk/by-partlabel/SCRATCH ] || sgdisk /dev/$(lsblk -ndoNAME,MODEL | grep 'Instance Storage' | awk '{print $1}' | head -n1) --largest-new=1 --typecode=1:8300 --change-name=1:SCRATCH && partprobe && sleep 5" ]
-    - [ sh, -c, "[ -e /dev/disk/by-label/SCRATCH ] || mkfs.ext4 -q -F -L SCRATCH -E nodiscard,lazy_itable_init  /dev/disk/by-partlabel/SCRATCH" ]
+    - [ mkdir, -p, /run/disksetup ]
+    - [ sh, -c, "EPHEMERALS=$(lsblk -ndpoNAME,MODEL | grep 'Instance Storage' | awk -v ORS=' ' '{print $1}'); echo EPHEMERALS=\\\"$EPHEMERALS\\\" > /run/disksetup/disksetup.sh" ]
+    - [ sh, -c, "EPHEMERALCOUNT=$(lsblk -ndoNAME,MODEL | grep 'Instance Storage' | wc -l); echo EPHEMERALCOUNT=$EPHEMERALCOUNT >> /run/disksetup/disksetup.sh" ]
+    - [ sh, -c, ". /run/disksetup/disksetup.sh; if ! blkid /dev/md0 > /dev/null && [ $EPHEMERALCOUNT -ne 0 ]; then for d in $EPHEMERALS; do dd if=/dev/zero bs=1M count=4 of=$d; done; partprobe; mdadm --create --verbose /dev/md0 --level=0 --raid-devices=$EPHEMERALCOUNT $EPHEMERALS && echo \\\"DEVICE $EPHEMERALS\\\" > /etc/mdadm/mdadm.conf; partprobe; fi" ]
+    - [ sh, -c, "if ! blkid -L SCRATCH >/dev/null && lsblk -npoNAME /dev/md0 > /dev/null; then mkfs.ext4 -q -F -L SCRATCH -E nodiscard,lazy_itable_init /dev/md0; fi" ]
 
 mounts:
     - [ "LABEL=SCRATCH", "/scratch", "auto", "defaults,noatime,nodiratime,nofail,nosuid,nodev,x-systemd.requires=cloud-init.service", "0", "2" ]
