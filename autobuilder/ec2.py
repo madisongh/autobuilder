@@ -103,7 +103,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         self.product_description = product_description
 
         if None not in [placement, region]:
-            self.placement = '%s%s' % (region, placement)
+            self.placement = '{}{}'.format(region, placement)
         else:
             self.placement = None
         if identifier is None:
