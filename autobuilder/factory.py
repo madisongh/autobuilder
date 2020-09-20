@@ -197,6 +197,11 @@ class DistroImage(BuildFactory):
                                           description=['Creating', 'auto.conf'],
                                           descriptionDone=['Created', 'auto.conf']))
 
+        if triggers:
+            if isinstance(triggers, str):
+                triggers = [triggers]
+            self.addStep(steps.Trigger(schedulerNames=[alt + '-triggered' for alt in triggers]))
+
         if imageset.multiconfig:
             for img in imageset.imagespecs:
                 mcconf = ['DEPLOY_DIR_MCSHARED = "${TOPDIR}/tmp/deploy"',
@@ -218,11 +223,6 @@ class DistroImage(BuildFactory):
                                                                    imageset.name, img.mcname]))
             target_images = [img for img in imageset.imagespecs if not img.is_sdk]
             sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
-
-            if triggers:
-                if isinstance(triggers, str):
-                    triggers = [triggers]
-                self.addStep(steps.Trigger(schedulerNames=[alt + '-triggered' for alt in triggers]))
 
             if target_images:
                 tgtenv = env_vars.copy()
