@@ -200,7 +200,8 @@ class DistroImage(BuildFactory):
         if triggers:
             if isinstance(triggers, str):
                 triggers = [triggers]
-            self.addStep(steps.Trigger(schedulerNames=[alt + '-triggered' for alt in triggers]))
+            self.addStep(steps.Trigger(schedulerNames=[alt + '-triggered' for alt in triggers],
+                                       set_properties={'buildtype': util.Property('buildtype')}))
 
         if imageset.multiconfig:
             for img in imageset.imagespecs:
