@@ -109,6 +109,8 @@ class Distro(object):
                  dl_mirror=None,
                  weekly_type=None,
                  push_type='__default__',
+                 triggerable=False,
+                 triggers=None,
                  pullrequest_type=None,
                  extra_config=None,
                  extra_env=None):
@@ -128,6 +130,8 @@ class Distro(object):
         self.dl_mirror = dl_mirror
         self.buildnum_template = buildnum_template
         self.release_buildname_variable = release_buildname_variable
+        self.triggerable = triggerable
+        self.triggers = triggers
         self.buildtypes = buildtypes
         if buildtypes is None:
             self.buildtypes = [Buildtype(bt) for bt in DEFAULT_BLDTYPES]
@@ -517,6 +521,9 @@ class AutobuilderConfig(object):
     def schedulers(self):
         s = []
         for d in self.distros:
+            if d.triggerable:
+                s.append(schedulers.Triggerable(name=d.name + '-triggered',
+                                                builderNames=d.builder_names))
             if d.push_type is not None:
                 md_filter = util.ChangeFilter(project=d.name,
                                               branch=d.branch, codebase=d.reponame,
@@ -592,6 +599,7 @@ class AutobuilderConfig(object):
                                                             branch=d.branch,
                                                             codebase=d.reponame,
                                                             imageset=imgset,
+                                                            triggers=d.triggers,
                                                             extra_env=d.extra_env))
                   for imgset in d.targets]
         return b

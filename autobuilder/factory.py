@@ -153,7 +153,7 @@ def datestamp(props):
 
 class DistroImage(BuildFactory):
     def __init__(self, repourl, submodules=False, branch='master',
-                 codebase='', imageset=None, extra_env=None):
+                 codebase='', imageset=None, triggers=None, extra_env=None):
         BuildFactory.__init__(self)
         self.addStep(steps.SetProperty(property='datestamp', value=datestamp))
         self.addStep(steps.Git(repourl=repourl, submodules=submodules,
@@ -218,6 +218,12 @@ class DistroImage(BuildFactory):
                                                                    imageset.name, img.mcname]))
             target_images = [img for img in imageset.imagespecs if not img.is_sdk]
             sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
+
+            if triggers:
+                if isinstance(triggers, str):
+                    triggers = [triggers]
+                self.addStep(steps.Trigger(schedulerNames=[alt + '-triggered' for alt in triggers]))
+
             if target_images:
                 tgtenv = env_vars.copy()
                 tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
