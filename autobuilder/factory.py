@@ -176,8 +176,10 @@ class DistroImage(BuildFactory):
         env_vars = ENV_VARS.copy()
         if extra_env:
             env_vars.update(extra_env)
-        if imageset.distro is not None:
-            env_vars.update({'DISTRO': imageset.distro})
+            if imageset.distro is not None:
+                extra_env.update({'DISTRO': imageset.distro})
+        elif imageset.distro is not None:
+            extra_env = {'DISTRO': imageset.distro}
 
         # First, remove duplicates from PATH,
         # then strip out the virtualenv bin directory if we're in a virtualenv.
