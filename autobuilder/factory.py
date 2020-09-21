@@ -156,6 +156,8 @@ class DistroImage(BuildFactory):
                  codebase='', imageset=None, triggers=None, extra_env=None):
         BuildFactory.__init__(self)
         self.addStep(steps.SetProperty(property='datestamp', value=datestamp))
+        if imageset.distro is not None:
+            self.addStep(steps.SetProperty(property='DISTRO', value=imageset.distro))
         self.addStep(steps.Git(repourl=repourl, submodules=submodules,
                                branch=branch, codebase=codebase,
                                name='git-checkout-{}'.format(branch),
@@ -174,6 +176,9 @@ class DistroImage(BuildFactory):
         env_vars = ENV_VARS.copy()
         if extra_env:
             env_vars.update(extra_env)
+        if imageset.distro is not None:
+            env_vars.update({'DISTRO': imageset.distro})
+
         # First, remove duplicates from PATH,
         # then strip out the virtualenv bin directory if we're in a virtualenv.
         setup_cmd = 'PATH=`echo -n "$PATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \
