@@ -3,10 +3,12 @@
 
 import re
 import time
+from copy import deepcopy
 
 import buildbot.status.builder as bbres
 from buildbot.plugins import steps, util
 from buildbot.process.factory import BuildFactory
+from twisted.python import log
 
 from autobuilder import settings
 
@@ -178,14 +180,19 @@ class DistroImage(BuildFactory):
                                       method='clobber',
                                       doStepIf=lambda step: is_pull_request(step.build.getProperties()),
                                       hideStepIf=lambda results, step: results == bbres.SKIPPED))
-        env_vars = ENV_VARS.copy()
+        env_vars = deepcopy(ENV_VARS)
         if extra_env:
             env_vars.update(extra_env)
             if imageset.distro is not None:
                 extra_env.update({'DISTRO': imageset.distro})
+            elif 'DISTRO' in extra_env:
+                log.msg('DISTRO defined in environment ({}) but no distro in image set'.format(extra_env['DISTRO']))
+                del extra_env['DISTRO']
         elif imageset.distro is not None:
             extra_env = {'DISTRO': imageset.distro}
-
+        elif 'DISTRO' in extra_env:
+            log.msg('DISTRO defined in environment ({}) but no distro in image set'.format(extra_env['DISTRO']))
+            del extra_env['DISTRO']
         # First, remove duplicates from PATH,
         # then strip out the virtualenv bin directory if we're in a virtualenv.
         setup_cmd = 'PATH=`echo -n "$PATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \
