@@ -3,14 +3,12 @@
 
 import re
 import time
-from copy import deepcopy
 
 import buildbot.status.builder as bbres
 from buildbot.plugins import steps, util
 from buildbot.process.factory import BuildFactory
-from twisted.python import log
 
-from autobuilder import settings
+from autobuilder import settings, utils
 
 ENV_VARS = {'PATH': util.Property('PATH'),
             'BB_ENV_EXTRAWHITE': util.Property('BB_ENV_EXTRAWHITE'),
@@ -180,19 +178,10 @@ class DistroImage(BuildFactory):
                                       method='clobber',
                                       doStepIf=lambda step: is_pull_request(step.build.getProperties()),
                                       hideStepIf=lambda results, step: results == bbres.SKIPPED))
-        env_vars = deepcopy(ENV_VARS)
-        if extra_env:
-            env_vars.update(extra_env)
-            if imageset.distro is not None:
-                extra_env.update({'DISTRO': imageset.distro})
-            elif 'DISTRO' in extra_env:
-                log.msg('DISTRO defined in environment ({}) but no distro in image set'.format(extra_env['DISTRO']))
-                del extra_env['DISTRO']
-        elif imageset.distro is not None:
-            extra_env = {'DISTRO': imageset.distro}
-        elif 'DISTRO' in extra_env:
-            log.msg('DISTRO defined in environment ({}) but no distro in image set'.format(extra_env['DISTRO']))
-            del extra_env['DISTRO']
+        imageset_env = {}
+        if imageset.distro is not None:
+            imageset_env['DISTRO'] = imageset.distro
+
         # First, remove duplicates from PATH,
         # then strip out the virtualenv bin directory if we're in a virtualenv.
         setup_cmd = 'PATH=`echo -n "$PATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \
@@ -206,7 +195,7 @@ class DistroImage(BuildFactory):
                                            descriptionDone=['Removed', 'old', 'build', 'directory']))
         self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c',
                                                            util.Interpolate(setup_cmd)],
-                                                  env=extra_env,
+                                                  env=utils.dict_merge(extra_env, imageset_env),
                                                   extract_fn=extract_env_vars,
                                                   name='EnvironmentSetup',
                                                   description=['Running', 'setup', 'script'],
@@ -245,7 +234,7 @@ class DistroImage(BuildFactory):
             sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
 
             if target_images:
-                tgtenv = env_vars.copy()
+                tgtenv = utils.dict_merge(ENV_VARS, extra_env)
                 tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
                 args = ["mc:{}:{}".format(img.mcname, arg) for img in target_images for arg in img.args]
                 cmd = util.Interpolate("bitbake %(kw:bitbake_option)s " + ' '.join(args),
@@ -256,7 +245,7 @@ class DistroImage(BuildFactory):
                                                 description=['Building', imageset.name, '(multiconfig)'],
                                                 descriptionDone=['Built', imageset.name, '(multiconfig)']))
             if sdk_images:
-                tgtenv = env_vars.copy()
+                tgtenv = utils.dict_merge(ENV_VARS, extra_env)
                 tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in sdk_images])
                 args = ["mc:{}:{}".format(img.mcname, arg) for img in sdk_images for arg in img.args]
                 cmd = util.Interpolate("bitbake %(kw:bitbake_option)s -c populate_sdk " + ' '.join(args),
@@ -268,7 +257,7 @@ class DistroImage(BuildFactory):
                                                 descriptionDone=['Built', 'SDK', imageset.name, '(multiconfig)']))
         else:
             for i, img in enumerate(imageset.imagespecs, start=1):
-                tgtenv = env_vars.copy()
+                tgtenv = utils.dict_merge(ENV_VARS, extra_env)
                 bbcmd = "bitbake"
                 if img.is_sdk:
                     bbcmd += " -c populate_sdk"

@@ -1,5 +1,6 @@
 def dict_merge(*dict_args):
     result = {}
     for d in dict_args:
-        result.update(d)
+        if d:
+            result.update(d)
     return result
