@@ -85,10 +85,11 @@ class SdkImage(ImageSpec):
 
 
 class TargetImageSet(object):
-    def __init__(self, name, imagespecs=None, multiconfig=False, distro=None):
+    def __init__(self, name, imagespecs=None, multiconfig=False, distro=None, artifacts=None):
         self.name = name
         self.distro = distro
         self.multiconfig = multiconfig
+        self.artifacts = artifacts
         if imagespecs is None:
             raise RuntimeError('No images defined for %s' % name)
         self.imagespecs = imagespecs

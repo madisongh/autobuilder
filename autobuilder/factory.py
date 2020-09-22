@@ -155,9 +155,14 @@ class DistroImage(BuildFactory):
     def __init__(self, repourl, submodules=False, branch='master',
                  codebase='', imageset=None, triggers=None, extra_env=None):
         BuildFactory.__init__(self)
-        self.addStep(steps.SetProperty(property='datestamp', value=datestamp))
+        self.addStep(steps.SetProperty(name='SetDatestamp',
+                                       property='datestamp', value=datestamp))
         if imageset.distro is not None:
-            self.addStep(steps.SetProperty(property='DISTRO', value=imageset.distro))
+            self.addStep(steps.SetProperty(name='SetImagesetDistro',
+                                           property='DISTRO', value=imageset.distro))
+        if imageset.artifacts is not None:
+            self.addStep(steps.SetProperty(name='SetImagesetArtifacts',
+                                           property='artifacts', value=','.join(imageset.artifacts)))
         self.addStep(steps.Git(repourl=repourl, submodules=submodules,
                                branch=branch, codebase=codebase,
                                name='git-checkout-{}'.format(branch),
