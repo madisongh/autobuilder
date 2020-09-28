@@ -234,8 +234,8 @@ class EC2Params(object):
 
 
 class AutobuilderEC2Worker(AutobuilderWorker):
-    master_ip_address = os.getenv('MASTER_IP_ADDRESS')
     master_hostname = socket.gethostname()
+    master_ip_address = os.getenv('MASTER_IP_ADDRESS') or socket.gethostbyname(master_hostname)
     master_fqdn = socket.getaddrinfo(master_hostname, 0, flags=socket.AI_CANONNAME)[0][3]
 
     def __init__(self, name, password, ec2params, conftext=None, max_builds=1,
