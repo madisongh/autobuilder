@@ -58,6 +58,12 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         # noinspection PyCallByClass
         AbstractLatentWorker.__init__(self, name, password, **kwargs)
 
+        # Set the default build wait timeout lower
+        #   no wait for spot instances - they're apt to time out before completing a second build anyway
+        #   5 minutes for on-demand instances
+        if 'build_wait_timeout' not in kwargs:
+            self.build_wait_timeout = 0 if spot_instance else 300
+
         if security_name and subnet_id:
             raise ValueError(
                 'security_name (EC2 classic security groups) is not supported '
