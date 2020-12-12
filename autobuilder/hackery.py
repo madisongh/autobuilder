@@ -1,7 +1,5 @@
 from abc import ABCMeta
-import twisted
-from twisted.mail.smtp import ESMTPSender, ESMTPSenderFactory
-
+from twisted.mail.smtp import ESMTPSender
 
 class myESMTPSender(ESMTPSender, metaclass=ABCMeta):
     def _getContextFactory(self):
@@ -17,7 +15,3 @@ class myESMTPSender(ESMTPSender, metaclass=ABCMeta):
                 return context
             except AttributeError:
                 return None
-
-
-if twisted.version.major == 20 and twisted.version.minor <= 3:
-    ESMTPSenderFactory.protocol = myESMTPSender

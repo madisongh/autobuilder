@@ -1,6 +1,12 @@
-from autobuilder.abconfig import AutobuilderConfig, Buildtype, Distro, Repo, TargetImageSet
-from autobuilder.abconfig import TargetImage, SdkImage
-from autobuilder.abconfig import AutobuilderWorker, EC2Params, AutobuilderEC2Worker
-from autobuilder.abconfig import AutobuilderGithubEventHandler
-from autobuilder.ec2 import MyEC2LatentWorker
-import autobuilder.hackery
+from .hackery import myESMTPSender
+from .abconfig import AutobuilderConfig, Buildtype, Distro, Repo, TargetImageSet
+from .abconfig import TargetImage, SdkImage
+from .abconfig import AutobuilderWorker, EC2Params, AutobuilderEC2Worker
+from .abconfig import AutobuilderGithubEventHandler
+from .ec2 import MyEC2LatentWorker
+from .aws_secretsprovider.aws_secrets import AWSSecretsManagerProvider
+import twisted
+from twisted.mail.smtp import ESMTPSenderFactory
+
+if twisted.version.major == 20 and twisted.version.minor <= 3:
+    ESMTPSenderFactory.protocol = myESMTPSender
