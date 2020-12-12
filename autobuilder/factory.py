@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2017 by Matthew Madison
+# Copyright (c) 2014-2020 by Matthew Madison
 # Distributed under license.
 
 import re
@@ -191,19 +191,19 @@ class DistroImage(BuildFactory):
         # Setup steps
 
         self.addStep(steps.RemoveDirectory('build/build', name='cleanup',
-                                           description=['Removing', 'old', 'build', 'directory'],
-                                           descriptionDone=['Removed', 'old', 'build', 'directory']))
+                                           description="Removing old build directory",
+                                           descriptionDone="Removed old build directory"))
         self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c',
                                                            util.Interpolate(setup_cmd)],
                                                   env=utils.dict_merge(extra_env, imageset_env),
                                                   extract_fn=extract_env_vars,
                                                   name='EnvironmentSetup',
-                                                  description=['Running', 'setup', 'script'],
-                                                  descriptionDone=['Ran', 'setup', 'script']))
+                                                  description="Running setup script",
+                                                  descriptionDone="Ran setup script"))
         self.addStep(steps.StringDownload(s=make_autoconf, workerdest='auto.conf',
                                           workdir=util.Interpolate("%(prop:BUILDDIR)s/conf"), name='make-auto.conf',
-                                          description=['Creating', 'auto.conf'],
-                                          descriptionDone=['Created', 'auto.conf']))
+                                          description="Creating auto.conf",
+                                          descriptionDone="Created auto.conf"))
 
         if triggers:
             if isinstance(triggers, str):
@@ -227,9 +227,9 @@ class DistroImage(BuildFactory):
                 self.addStep(steps.StringDownload(s='\n'.join(mcconf) + '\n', workerdest="%s.conf" % img.mcname,
                                                   workdir=util.Interpolate("%(prop:BUILDDIR)s/conf/multiconfig"),
                                                   name='make_mc_%s_%s' % (imageset.name, img.mcname),
-                                                  description=['Creating', 'multiconfig', imageset.name, img.mcname],
-                                                  descriptionDone=['Created', 'multiconfig',
-                                                                   imageset.name, img.mcname]))
+                                                  description="Creating",
+                                                  descriptionSuffix=["multiconfig", imageset.name, img.mcname],
+                                                  descriptionDone="Created"))
             target_images = [img for img in imageset.imagespecs if not img.is_sdk]
             sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
 
@@ -242,8 +242,9 @@ class DistroImage(BuildFactory):
                 self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
                                                 env=tgtenv, workdir=util.Property('BUILDDIR'),
                                                 name='build_%s_multiconfig' % imageset.name,
-                                                description=['Building', imageset.name, '(multiconfig)'],
-                                                descriptionDone=['Built', imageset.name, '(multiconfig)']))
+                                                description="Building",
+                                                descriptionSuffix=[imageset.name, "(multiconfig)"],
+                                                descriptionDone="Built"))
             if sdk_images:
                 tgtenv = utils.dict_merge(ENV_VARS, extra_env)
                 tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in sdk_images])
@@ -253,8 +254,9 @@ class DistroImage(BuildFactory):
                 self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
                                                 env=tgtenv, workdir=util.Property('BUILDDIR'),
                                                 name='build_sdk_%s_multiconfig' % imageset.name,
-                                                description=['Building', 'SDK', imageset.name, '(multiconfig)'],
-                                                descriptionDone=['Built', 'SDK', imageset.name, '(multiconfig)']))
+                                                description="Building",
+                                                descriptionSuffix=["SDK", imageset.name, "(multiconfig)"],
+                                                descriptionDone="Built"))
         else:
             for i, img in enumerate(imageset.imagespecs, start=1):
                 tgtenv = utils.dict_merge(ENV_VARS, extra_env)
@@ -270,10 +272,12 @@ class DistroImage(BuildFactory):
                 self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
                                                 env=tgtenv, workdir=util.Property('BUILDDIR'),
                                                 name='build_%s_%s' % (imageset.name, img.name),
-                                                description=['Building', imageset.name, img.name],
-                                                descriptionDone=['Built', imageset.name, img.name]))
+                                                description="Building",
+                                                descriptionSuffix=[imageset.name, img.name],
+                                                descriptionDone="Built"))
 
         self.addStep(steps.ShellCommand(command=store_artifacts_cmd, workdir=util.Property('BUILDDIR'),
                                         name='StoreArtifacts', timeout=None,
-                                        description=['Storing', 'artifacts'],
-                                        descriptionDone=['Stored', 'artifacts']))
+                                        description="Storing",
+                                        descriptionSuffix="artifacts",
+                                        descriptionDone="Stored"))
