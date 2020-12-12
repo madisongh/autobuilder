@@ -4,9 +4,9 @@
 import re
 import time
 
-import buildbot.status.builder as bbres
 from buildbot.plugins import steps, util
 from buildbot.process.factory import BuildFactory
+from buildbot.process.results import SKIPPED
 
 from autobuilder import settings, utils
 
@@ -169,7 +169,7 @@ class DistroImage(BuildFactory):
                                mode=('full' if submodules else 'incremental'),
                                method='clobber',
                                doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
-                               hideStepIf=lambda results, step: results == bbres.SKIPPED))
+                               hideStepIf=lambda results, step: results == SKIPPED))
         if 'github.com' in repourl:
             self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
                                       branch=branch, codebase=codebase,
@@ -177,7 +177,7 @@ class DistroImage(BuildFactory):
                                       mode=('full' if submodules else 'incremental'),
                                       method='clobber',
                                       doStepIf=lambda step: is_pull_request(step.build.getProperties()),
-                                      hideStepIf=lambda results, step: results == bbres.SKIPPED))
+                                      hideStepIf=lambda results, step: results == SKIPPED))
         imageset_env = {}
         if imageset.distro is not None:
             imageset_env['DISTRO'] = imageset.distro
