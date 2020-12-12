@@ -1,7 +1,5 @@
 import os
-import buildbot.reporters.utils as utils
-from buildbot.reporters.message import MessageFormatter
-from buildbot.reporters.notifier import NotifierBase
+from buildbot.reporters.message import MessageFormatter, get_detected_status_text
 from twisted.internet import defer
 from twisted.python import log
 
@@ -18,77 +16,42 @@ def getChangesForSourceStamps(master, sslist):
 
 # noinspection PyPep8Naming
 class AutobuilderMessageFormatter(MessageFormatter):
-    def __init__(self, template_dir=None,
-                 template_filename=None, template=None, template_name=None,
-                 subject_filename=None, subject=None,
-                 template_type=None, ctx=None,
-                 wantProperties=True, wantSteps=False, wantLogs=False,
-                 summary_filename=None, summary=None):
+    def __init__(self, template_dir=None, template_name=None,
+                 summary_filename=None, summary=None, **kwargs):
         if template_dir is None:
             template_dir = os.path.join(os.path.dirname(__file__), "templates")
-        super(AutobuilderMessageFormatter, self).__init__(template_dir, template_filename,
-                                                          template, template_name, subject_filename,
-                                                          subject, template_type, ctx, wantProperties,
-                                                          wantSteps, wantLogs)
+        kwargs['template_dir'] = template_dir
+        super().__init__(template_name, **kwargs)
         self.summary_template = None
         if summary_filename or summary:
             self.summary_template = self.getTemplate(summary_filename, template_dir, summary)
             self.wantProperties = True
 
-    def renderMessage(self, ctx):
-        msgdict = super(AutobuilderMessageFormatter, self).renderMessage(ctx)
+    @defer.inlineCallbacks
+    def render_message_dict(self, master, context):
+        yield self.buildAdditionalContext(master, context)
+        context.update(self.context)
+        msgdict = {
+            'body': self.render_message_body(context),
+            'type': self.template_type,
+            'subject': self.render_message_subject(context)
+        }
+        if 'changes' not in context:
+            context['changes'] = []
         if self.summary_template is not None:
-            msgdict['summary'] = self.summary_template.render(ctx)
+            summary = self.summary_template.render(context)
+            if msgdict['body'] is None:
+                msgdict['body'] = summary
+            else:
+                msgdict['body'] += summary
         return msgdict
 
     @defer.inlineCallbacks
-    def buildAdditionalContext(self, master, ctx):
-        ctx.update(self.ctx)
-        if ctx['sourcestamps']:
-            ctx['changes'] = yield getChangesForSourceStamps(master, ctx['buildset']['sourcestamps'])
+    def buildAdditionalContext(self, master, context):
+        context.update(self.context)
+        if context['sourcestamps']:
+            context['changes'] = yield getChangesForSourceStamps(master, context['buildset']['sourcestamps'])
         else:
-            ctx['changes'] = []
-        ctx['buildset_status_detected'] = self.getDetectedStatus(ctx['mode'], ctx['buildset']['results'], None)
-
-
-@defer.inlineCallbacks
-def autoBuilderBuildMessage(self, name, builds, results):
-    patches = []
-    logs = []
-    body = ""
-    subject = None
-    msgtype = None
-    users = set()
-    buildmsg = {}
-    for build in builds:
-        if self.addPatch:
-            ss_list = build['buildset']['sourcestamps']
-
-            for ss in ss_list:
-                if 'patch' in ss and ss['patch'] is not None:
-                    patches.append(ss['patch'])
-        if self.addLogs:
-            build_logs = yield self.getLogsForBuild(build)
-            logs.extend(build_logs)
-
-        if 'prev_build' in build and build['prev_build'] is not None:
-            previous_results = build['prev_build']['results']
-        else:
-            previous_results = None
-        blamelist = yield utils.getResponsibleUsersForBuild(self.master, build['buildid'])
-        buildmsg = yield self.messageFormatter.formatMessageForBuildResults(
-            self.mode, name, build['buildset'], build, self.master,
-            previous_results, blamelist)
-        users.update(set(blamelist))
-        msgtype = buildmsg['type']
-        body += buildmsg['body']
-    if 'subject' in buildmsg:
-        subject = buildmsg['subject']
-    if 'summary' in buildmsg:
-        body += buildmsg['summary']
-
-    yield self.sendMessage(body, subject, msgtype, name, results, builds,
-                           list(users), patches, logs)
-
-
-NotifierBase.buildMessage = autoBuilderBuildMessage
+            context['changes'] = []
+        context['buildset_status_detected'] = get_detected_status_text(context['mode'],
+                                                                       context['buildset']['results'], None)
