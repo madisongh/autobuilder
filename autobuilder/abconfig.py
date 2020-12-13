@@ -85,7 +85,7 @@ class SdkImage(ImageSpec):
 
 
 class TargetImageSet(object):
-    def __init__(self, name, imagespecs=None, multiconfig=False, distro=None, artifacts=None):
+    def __init__(self, name, imagespecs=None, multiconfig=False, distro=None, artifacts=[]):
         self.name = name
         self.distro = distro
         self.multiconfig = multiconfig
@@ -100,7 +100,7 @@ class Distro(object):
                  targets=None,
                  setup_script='./setup-env',
                  repotimer=300,
-                 artifacts=None,
+                 artifacts=[],
                  buildtypes=None,
                  weekly_type=None,
                  push_type='__default__',
