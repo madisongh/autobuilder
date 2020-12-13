@@ -26,7 +26,7 @@ default_svp = {'name': '/dev/xvdf', 'size': 200,
 class Buildtype(object):
     def __init__(self, name, current_symlink=False, defaulttype=False,
                  pullrequesttype=False, production_release=False,
-                 disable_sstate=False, keep_going=False, extra_config=None):
+                 disable_sstate=False, keep_going=False, extra_config=[]):
         self.name = name
         self.keep_going = keep_going
         self.current_symlink = current_symlink
@@ -34,7 +34,7 @@ class Buildtype(object):
         self.pullrequesttype = pullrequesttype
         self.production_release = production_release
         self.disable_sstate = disable_sstate
-        self.extra_config = extra_config or ''
+        self.extra_config = [extra_config] if isinstance(extra_config, str) else extra_config
 
 
 class Repo(object):
@@ -97,41 +97,27 @@ class TargetImageSet(object):
 
 class Distro(object):
     def __init__(self, name, reponame, branch, email, path,
-                 dldir=None,
-                 ssmirror=None,
                  targets=None,
                  setup_script='./setup-env',
                  repotimer=300,
                  artifacts=None,
-                 sstate_mirrorvar='SSTATE_MIRRORS = "file://.* file://%s/PATH"',
-                 dl_mirrorvar=None,
                  buildtypes=None,
-                 buildnum_template='DISTRO_BUILDNUM = "-%s"',
-                 release_buildname_variable='BUILDNAME',
-                 dl_mirror=None,
                  weekly_type=None,
                  push_type='__default__',
                  triggerable=False,
                  triggers=None,
                  pullrequest_type=None,
-                 extra_config=None,
+                 extra_config=[],
                  extra_env=None):
         self.name = name
         self.reponame = reponame
         self.branch = branch
         self.email = email
         self.artifacts_path = path
-        self.dl_dir = dldir
-        self.sstate_mirror = ssmirror
         self.targets = targets
         self.setup_script = setup_script
         self.repotimer = repotimer
         self.artifacts = artifacts
-        self.sstate_mirrorvar = sstate_mirrorvar
-        self.dl_mirrorvar = dl_mirrorvar
-        self.dl_mirror = dl_mirror
-        self.buildnum_template = buildnum_template
-        self.release_buildname_variable = release_buildname_variable
         self.triggerable = triggerable
         self.triggers = triggers
         self.buildtypes = buildtypes
@@ -157,7 +143,7 @@ class Distro(object):
             self.pullrequest_type = prtypelist[0]
         else:
             self.pullrequest_type = None
-        self.extra_config = extra_config or ''
+        self.extra_config = [extra_config] if isinstance(extra_config, str) else extra_config
         self.extra_env = extra_env
 
     def codebases(self, repos):
@@ -575,12 +561,7 @@ class AutobuilderConfig(object):
     def builders(self):
         b = []
         for d in self.distros:
-            props = {'sstate_mirror': d.sstate_mirror,
-                     'sstate_mirrorvar': d.sstate_mirrorvar,
-                     'dl_mirrorvar': d.dl_mirrorvar or "",
-                     'dl_mirror': d.dl_mirror,
-                     'artifacts_path': d.artifacts_path,
-                     'downloads_dir': d.dl_dir,
+            props = {'artifacts_path': d.artifacts_path,
                      'project': d.name,
                      'repourl': self.repos[d.reponame].uri,
                      'branch': d.branch,
@@ -588,9 +569,7 @@ class AutobuilderConfig(object):
                      'artifacts': ','.join(d.artifacts),
                      'autobuilder': self.name,
                      'distro': d.name,
-                     'buildnum_template': d.buildnum_template,
-                     'release_buildname_variable': d.release_buildname_variable,
-                     'extraconf': d.extra_config}
+                     'extraconf': d.extra_config or []}
             repo = self.repos[d.reponame]
             b += [BuilderConfig(name=d.name + '-' + imgset.name,
                                 workernames=self.worker_names,
