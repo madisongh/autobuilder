@@ -43,14 +43,6 @@ def update_current_symlink(props):
     return _get_btinfo(props).current_symlink
 
 
-@util.renderer
-def dl_dir(props):
-    dldir = props.getProperty('downloads_dir')
-    if dldir:
-        return dldir
-    return 'downloads'
-
-
 # noinspection PyUnusedLocal
 def extract_env_vars(rc, stdout, stderr):
     pat = re.compile('^(' + '|'.join(ENV_VARS.keys()) + ')=(.*)')
@@ -87,38 +79,20 @@ def worker_extraconfig(props):
 @util.renderer
 def make_autoconf(props):
     pr = is_pull_request(props)
-    result = ['INHERIT += "rm_work buildstats-summary%s"' % ('' if pr else ' buildhistory'),
-              props.getProperty('buildnum_template') % build_tag(props)]
-    if is_release_build(props):
-        result.append('%s = ""' % props.getProperty('release_buildname_variable'))
-    if props.getProperty('downloads_dir'):
-        result.append('DL_DIR = "%s"' % props.getProperty('downloads_dir'))
-    if props.getProperty('dl_mirrorvar') != "" and props.getProperty('dl_mirror') is not None:
-        result.append(props.getProperty('dl_mirrorvar') % props.getProperty('dl_mirror'))
-        if not pr:
-            result.append('BB_GENERATE_MIRROR_TARBALLS = "1"')
-            result.append('UPDATE_DOWNLOADS_MIRROR = "1"')
-    if props.getProperty('sstate_mirrorvar') and props.getProperty('sstate_mirror'):
-        result.append(props.getProperty('sstate_mirrorvar') % props.getProperty('sstate_mirror'))
-        if not pr:
-            result.append('UPDATE_SSTATE_MIRROR = "1"')
+    result = ['INHERIT += "rm_work buildstats-summary%s"' % ('' if pr else ' buildhistory')]
+    if not pr:
+        result.append('BB_GENERATE_MIRROR_TARBALLS = "1"')
+        result.append('UPDATE_DOWNLOADS_MIRROR = "1"')
+        result.append('UPDATE_SSTATE_MIRROR = "1"')
     if without_sstate(props):
         result.append('SSTATE_MIRRORS_forcevariable = ""')
     if not pr:
         result.append('BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"')
     # Worker-specific config
-    extraconfig = worker_extraconfig(props)
-    if len(extraconfig) > 0:
-        result.append(extraconfig)
-    # Distro-specific config, can override worker config
-    extraconfig = props.getProperty('extraconf')
-    if len(extraconfig) > 0:
-        result.append(extraconfig)
-    # Buildtype-specific config, can override distro and worker configs
-    extraconfig = _get_btinfo(props).extra_config
-    if len(extraconfig) > 0:
-        result.append(extraconfig)
-    return '\n'.join(result) + '\n'
+    result += worker_extraconfig(props) or []
+    result += props.getProperty('extraconf') or []
+    result += _get_btinfo(props).extra_config or []
+    return util.Interpolate('\n'.join(result) + '\n')
 
 
 @util.renderer
