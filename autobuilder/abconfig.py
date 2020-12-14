@@ -26,7 +26,7 @@ default_svp = {'name': '/dev/xvdf', 'size': 200,
 class Buildtype(object):
     def __init__(self, name, current_symlink=False, defaulttype=False,
                  pullrequesttype=False, production_release=False,
-                 disable_sstate=False, keep_going=False, extra_config=[]):
+                 disable_sstate=False, keep_going=False, extra_config=None):
         self.name = name
         self.keep_going = keep_going
         self.current_symlink = current_symlink
@@ -34,7 +34,10 @@ class Buildtype(object):
         self.pullrequesttype = pullrequesttype
         self.production_release = production_release
         self.disable_sstate = disable_sstate
-        self.extra_config = [extra_config] if isinstance(extra_config, str) else extra_config
+        if extra_config:
+            self.extra_config = [extra_config] if isinstance(extra_config, str) else extra_config
+        else:
+            self.extra_config = []
 
 
 class Repo(object):
@@ -85,7 +88,7 @@ class SdkImage(ImageSpec):
 
 
 class TargetImageSet(object):
-    def __init__(self, name, imagespecs=None, multiconfig=False, distro=None, artifacts=[]):
+    def __init__(self, name, imagespecs=None, multiconfig=False, distro=None, artifacts=None):
         self.name = name
         self.distro = distro
         self.multiconfig = multiconfig
@@ -100,14 +103,14 @@ class Distro(object):
                  targets=None,
                  setup_script='./setup-env',
                  repotimer=300,
-                 artifacts=[],
+                 artifacts=None,
                  buildtypes=None,
                  weekly_type=None,
                  push_type='__default__',
                  triggerable=False,
                  triggers=None,
                  pullrequest_type=None,
-                 extra_config=[],
+                 extra_config=None,
                  extra_env=None):
         self.name = name
         self.reponame = reponame
@@ -117,7 +120,7 @@ class Distro(object):
         self.targets = targets
         self.setup_script = setup_script
         self.repotimer = repotimer
-        self.artifacts = artifacts
+        self.artifacts = artifacts or []
         self.triggerable = triggerable
         self.triggers = triggers
         self.buildtypes = buildtypes
@@ -143,7 +146,10 @@ class Distro(object):
             self.pullrequest_type = prtypelist[0]
         else:
             self.pullrequest_type = None
-        self.extra_config = [extra_config] if isinstance(extra_config, str) else extra_config
+        if extra_config:
+            self.extra_config = [extra_config] if isinstance(extra_config, str) else extra_config
+        else:
+            self.extra_config = []
         self.extra_env = extra_env
 
     def codebases(self, repos):
@@ -161,17 +167,14 @@ class AutobuilderWorker(object):
     def __init__(self, name, password, conftext=None, max_builds=1):
         self.name = name
         self.password = password
-        self.conftext = conftext
+        if conftext:
+            self.context = [conftext] if isinstance(conftext, str) else conftext
+        else:
+            self.conftext = []
         self.max_builds = max_builds
         if max_builds > 1:
-            threadconf = '\n'.join(['BB_NUMBER_THREADS = "${@oe.utils.cpu_count() // %d}"' % max_builds,
-                                    'PARALLEL_MAKE = "-j ${@oe.utils.cpu_count() // %d}"' % max_builds]) + '\n'
-            if self.conftext:
-                if not self.conftext.endswith('\n'):
-                    self.conftext += "\n"
-                self.conftext += threadconf
-            else:
-                self.conftext = threadconf
+            self.conftext += ['BB_NUMBER_THREADS = "${@oe.utils.cpu_count() // %d}"' % max_builds,
+                              'PARALLEL_MAKE = "-j ${@oe.utils.cpu_count() // %d}"' % max_builds]
 
 
 class EC2Params(object):
