@@ -185,7 +185,7 @@ class EC2Params(object):
                  scratchvol=False, scratchvol_params=None,
                  instance_profile_name=None, spot_instance=False,
                  max_spot_price=None, price_multiplier=None,
-                 instance_types=None):
+                 instance_types=None, build_wait_timeout=None):
         self.instance_type = instance_type
         self.instance_types = instance_types
         self.ami = ami
@@ -195,6 +195,10 @@ class EC2Params(object):
         self.subnet = subnet
         self.elastic_ip = elastic_ip
         self.tags = tags
+        if build_wait_timeout:
+            self.build_wait_timeout = build_wait_timeout
+        else:
+            self.build_wait_timeout = 0 if spot_instance else 300
         if scratchvol:
             self.scratchvolparams = scratchvol_params or default_svp
         else:
@@ -465,6 +469,7 @@ class AutobuilderConfig(object):
                                                       tags=w.ec2tags,
                                                       block_device_map=w.ec2_dev_mapping,
                                                       spot_instance=w.ec2params.spot_instance,
+                                                      build_wait_timeout=w.ec2params.build_wait_timeout,
                                                       max_spot_price=w.ec2params.max_spot_price,
                                                       price_multiplier=w.ec2params.price_multiplier,
                                                       instance_types=w.ec2params.instance_types))
