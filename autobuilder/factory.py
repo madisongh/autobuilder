@@ -11,6 +11,7 @@ from buildbot.process.results import SKIPPED
 from autobuilder import settings, utils
 
 ENV_VARS = {'PATH': util.Property('PATH'),
+            'ORIGPATH': util.Property('ORIGPATH'),
             'BB_ENV_EXTRAWHITE': util.Property('BB_ENV_EXTRAWHITE'),
             'BUILDDIR': util.Property('BUILDDIR')
             }
@@ -127,16 +128,10 @@ def datestamp(props):
 
 class DistroImage(BuildFactory):
     def __init__(self, repourl, submodules=False, branch='master',
-                 codebase='', imageset=None, triggers=None, extra_env=None):
+                 codebase='', imagesets=None, triggers=None, extra_env=None):
         BuildFactory.__init__(self)
         self.addStep(steps.SetProperty(name='SetDatestamp',
                                        property='datestamp', value=datestamp))
-        if imageset.distro is not None:
-            self.addStep(steps.SetProperty(name='SetImagesetDistro',
-                                           property='DISTRO', value=imageset.distro))
-        if imageset.artifacts is not None:
-            self.addStep(steps.SetProperty(name='SetImagesetArtifacts',
-                                           property='artifacts', value=','.join(imageset.artifacts)))
         self.addStep(steps.Git(repourl=repourl, submodules=submodules,
                                branch=branch, codebase=codebase,
                                name='git-checkout-{}'.format(branch),
@@ -152,13 +147,9 @@ class DistroImage(BuildFactory):
                                       method='clobber',
                                       doStepIf=lambda step: is_pull_request(step.build.getProperties()),
                                       hideStepIf=lambda results, step: results == SKIPPED))
-        imageset_env = {}
-        if imageset.distro is not None:
-            imageset_env['DISTRO'] = imageset.distro
-
-        # First, remove duplicates from PATH,
+        # First, remove duplicates from original PATH (saved in ORIGPATH env var),
         # then strip out the virtualenv bin directory if we're in a virtualenv.
-        setup_cmd = 'PATH=`echo -n "$PATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \
+        setup_cmd = 'PATH=`echo -n "$ORIGPATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \
                     'if [ -n "$VIRTUAL_ENV" ]; then ' + \
                     'PATH=`echo "$PATH" | sed -re "s,(^|:)$VIRTUAL_ENV/bin(:|$),\\2,g;s,^:,,"`; ' + \
                     'fi; . %(prop:setup_script)s; printenv'
@@ -167,91 +158,113 @@ class DistroImage(BuildFactory):
         self.addStep(steps.RemoveDirectory('build/build', name='cleanup',
                                            description="Removing old build directory",
                                            descriptionDone="Removed old build directory"))
-        self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c',
-                                                           util.Interpolate(setup_cmd)],
-                                                  env=utils.dict_merge(extra_env, imageset_env),
+
+        # Clean copy of original PATH, before any setup scripts have been run, to ensure
+        # we start fresh before each imageset, when we're running them sequentially.
+        self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', 'export ORIGPATH="$PATH"; printenv'],
+                                                  env=extra_env,
                                                   extract_fn=extract_env_vars,
-                                                  name='EnvironmentSetup',
-                                                  description="Running setup script",
-                                                  descriptionDone="Ran setup script"))
-        self.addStep(steps.StringDownload(s=make_autoconf, workerdest='auto.conf',
-                                          workdir=util.Interpolate("%(prop:BUILDDIR)s/conf"), name='make-auto.conf',
-                                          description="Creating auto.conf",
-                                          descriptionDone="Created auto.conf"))
+                                                  name='save_path',
+                                                  description="Saving",
+                                                  descriptionSuffix=["original", "PATH"],
+                                                  descriptionDone="Saved"))
+        for imageset in imagesets:
+            self.addStep(steps.SetProperty(name='SetImageSet', property='imageset', value=imageset.name))
+            imageset_env = {"ORIGPATH": util.Property("ORIGPATH")}
+            if imageset.distro is not None:
+                imageset_env['DISTRO'] = imageset.distro
+                self.addStep(steps.SetProperty(name='SetImagesetDistro',
+                                               property='DISTRO', value=imageset.distro))
 
-        if triggers:
-            if isinstance(triggers, str):
-                triggers = [triggers]
-            self.addStep(steps.Trigger(schedulerNames=[alt + '-triggered' for alt in triggers],
-                                       set_properties={'buildtype': util.Property('buildtype')}))
+            if imageset.artifacts is not None:
+                self.addStep(steps.SetProperty(name='SetImagesetArtifacts',
+                                               property='artifacts', value=','.join(imageset.artifacts)))
+            self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c',
+                                                               util.Interpolate(setup_cmd)],
+                                                      env=utils.dict_merge(extra_env, imageset_env),
+                                                      extract_fn=extract_env_vars,
+                                                      name='EnvironmentSetup',
+                                                      description="Running",
+                                                      descriptionSuffix=["setup", "script"],
+                                                      descriptionDone="Ran"))
+            self.addStep(steps.StringDownload(s=make_autoconf, workerdest='auto.conf',
+                                              workdir=util.Interpolate("%(prop:BUILDDIR)s/conf"), name='make-auto.conf',
+                                              description="Creating auto.conf",
+                                              descriptionDone="Created auto.conf"))
 
-        if imageset.multiconfig:
-            for img in imageset.imagespecs:
-                mcconf = ['DEPLOY_DIR_MCSHARED = "${TOPDIR}/tmp/deploy"',
-                          'DEPLOY_DIR_MCSHARED[vardepvalue] = "${DEPLOY_DIR}"',
-                          'DEPLOY_DIR_IMAGE = "${DEPLOY_DIR_MCSHARED}/images/${MACHINE}"',
-                          'DEPLOY_DIR_IMAGE[vardepvalue] = "${DEPLOY_DIR}/images/${MACHINE}"',
-                          'SDK_DEPLOY_forcevariable = "${DEPLOY_DIR_MCSHARED}/sdk"',
-                          'SDK_DEPLOY[vardepvalue] = "${DEPLOY_DIR}/sdk"',
-                          'TMPDIR = "${TOPDIR}/tmp-%s"' % img.mcname]
-                if img.machine:
-                    mcconf.append('MACHINE="{}"'.format(img.machine))
-                if img.sdkmachine:
-                    mcconf.append('SDKMACHINE="{}"'.format(img.sdkmachine))
-                self.addStep(steps.StringDownload(s='\n'.join(mcconf) + '\n', workerdest="%s.conf" % img.mcname,
-                                                  workdir=util.Interpolate("%(prop:BUILDDIR)s/conf/multiconfig"),
-                                                  name='make_mc_%s_%s' % (imageset.name, img.mcname),
-                                                  description="Creating",
-                                                  descriptionSuffix=["multiconfig", imageset.name, img.mcname],
-                                                  descriptionDone="Created"))
-            target_images = [img for img in imageset.imagespecs if not img.is_sdk]
-            sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
+            if triggers:
+                if isinstance(triggers, str):
+                    triggers = [triggers]
+                self.addStep(steps.Trigger(schedulerNames=[alt + '-triggered' for alt in triggers],
+                                           set_properties={'buildtype': util.Property('buildtype')}))
 
-            if target_images:
-                tgtenv = utils.dict_merge(ENV_VARS, extra_env)
-                tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
-                args = ["mc:{}:{}".format(img.mcname, arg) for img in target_images for arg in img.args]
-                cmd = util.Interpolate("bitbake %(kw:bitbake_option)s " + ' '.join(args),
-                                       bitbake_options=bitbake_options)
-                self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
-                                                env=tgtenv, workdir=util.Property('BUILDDIR'),
-                                                name='build_%s_multiconfig' % imageset.name,
-                                                description="Building",
-                                                descriptionSuffix=[imageset.name, "(multiconfig)"],
-                                                descriptionDone="Built"))
-            if sdk_images:
-                tgtenv = utils.dict_merge(ENV_VARS, extra_env)
-                tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in sdk_images])
-                args = ["mc:{}:{}".format(img.mcname, arg) for img in sdk_images for arg in img.args]
-                cmd = util.Interpolate("bitbake %(kw:bitbake_option)s -c populate_sdk " + ' '.join(args),
-                                       bitbake_options=bitbake_options)
-                self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
-                                                env=tgtenv, workdir=util.Property('BUILDDIR'),
-                                                name='build_sdk_%s_multiconfig' % imageset.name,
-                                                description="Building",
-                                                descriptionSuffix=["SDK", imageset.name, "(multiconfig)"],
-                                                descriptionDone="Built"))
-        else:
-            for i, img in enumerate(imageset.imagespecs, start=1):
-                tgtenv = utils.dict_merge(ENV_VARS, extra_env)
-                bbcmd = "bitbake"
-                if img.is_sdk:
-                    bbcmd += " -c populate_sdk"
-                if img.machine:
-                    tgtenv["MACHINE"] = img.machine
-                if img.sdkmachine:
-                    tgtenv["SDKMACHINE"] = img.sdkmachine
-                cmd = util.Interpolate(bbcmd + " %(kw:bitbake_options)s " + ' '.join(img.args),
-                                       bitbake_options=bitbake_options)
-                self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
-                                                env=tgtenv, workdir=util.Property('BUILDDIR'),
-                                                name='build_%s_%s' % (imageset.name, img.name),
-                                                description="Building",
-                                                descriptionSuffix=[imageset.name, img.name],
-                                                descriptionDone="Built"))
+            if imageset.multiconfig:
+                for img in imageset.imagespecs:
+                    mcconf = ['DEPLOY_DIR_MCSHARED = "${TOPDIR}/tmp/deploy"',
+                              'DEPLOY_DIR_MCSHARED[vardepvalue] = "${DEPLOY_DIR}"',
+                              'DEPLOY_DIR_IMAGE = "${DEPLOY_DIR_MCSHARED}/images/${MACHINE}"',
+                              'DEPLOY_DIR_IMAGE[vardepvalue] = "${DEPLOY_DIR}/images/${MACHINE}"',
+                              'SDK_DEPLOY_forcevariable = "${DEPLOY_DIR_MCSHARED}/sdk"',
+                              'SDK_DEPLOY[vardepvalue] = "${DEPLOY_DIR}/sdk"',
+                              'TMPDIR = "${TOPDIR}/tmp-%s"' % img.mcname]
+                    if img.machine:
+                        mcconf.append('MACHINE="{}"'.format(img.machine))
+                    if img.sdkmachine:
+                        mcconf.append('SDKMACHINE="{}"'.format(img.sdkmachine))
+                    self.addStep(steps.StringDownload(s='\n'.join(mcconf) + '\n', workerdest="%s.conf" % img.mcname,
+                                                      workdir=util.Interpolate("%(prop:BUILDDIR)s/conf/multiconfig"),
+                                                      name='make_mc_%s_%s' % (imageset.name, img.mcname),
+                                                      description="Creating",
+                                                      descriptionSuffix=["multiconfig", imageset.name, img.mcname],
+                                                      descriptionDone="Created"))
+                target_images = [img for img in imageset.imagespecs if not img.is_sdk]
+                sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
 
-        self.addStep(steps.ShellCommand(command=store_artifacts_cmd, workdir=util.Property('BUILDDIR'),
-                                        name='StoreArtifacts', timeout=None,
-                                        description="Storing",
-                                        descriptionSuffix="artifacts",
-                                        descriptionDone="Stored"))
+                if target_images:
+                    tgtenv = utils.dict_merge(ENV_VARS, extra_env)
+                    tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
+                    args = ["mc:{}:{}".format(img.mcname, arg) for img in target_images for arg in img.args]
+                    cmd = util.Interpolate("bitbake %(kw:bitbake_option)s " + ' '.join(args),
+                                           bitbake_options=bitbake_options)
+                    self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
+                                                    env=tgtenv, workdir=util.Property('BUILDDIR'),
+                                                    name='build_%s_multiconfig' % imageset.name,
+                                                    description="Building",
+                                                    descriptionSuffix=[imageset.name, "(multiconfig)"],
+                                                    descriptionDone="Built"))
+                if sdk_images:
+                    tgtenv = utils.dict_merge(ENV_VARS, extra_env)
+                    tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in sdk_images])
+                    args = ["mc:{}:{}".format(img.mcname, arg) for img in sdk_images for arg in img.args]
+                    cmd = util.Interpolate("bitbake %(kw:bitbake_option)s -c populate_sdk " + ' '.join(args),
+                                           bitbake_options=bitbake_options)
+                    self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
+                                                    env=tgtenv, workdir=util.Property('BUILDDIR'),
+                                                    name='build_sdk_%s_multiconfig' % imageset.name,
+                                                    description="Building",
+                                                    descriptionSuffix=["SDK", imageset.name, "(multiconfig)"],
+                                                    descriptionDone="Built"))
+            else:
+                for i, img in enumerate(imageset.imagespecs, start=1):
+                    tgtenv = utils.dict_merge(ENV_VARS, extra_env)
+                    bbcmd = "bitbake"
+                    if img.is_sdk:
+                        bbcmd += " -c populate_sdk"
+                    if img.machine:
+                        tgtenv["MACHINE"] = img.machine
+                    if img.sdkmachine:
+                        tgtenv["SDKMACHINE"] = img.sdkmachine
+                    cmd = util.Interpolate(bbcmd + " %(kw:bitbake_options)s " + ' '.join(img.args),
+                                           bitbake_options=bitbake_options)
+                    self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
+                                                    env=tgtenv, workdir=util.Property('BUILDDIR'),
+                                                    name='build_%s_%s' % (imageset.name, img.name),
+                                                    description="Building",
+                                                    descriptionSuffix=[imageset.name, img.name],
+                                                    descriptionDone="Built"))
+
+            self.addStep(steps.ShellCommand(command=store_artifacts_cmd, workdir=util.Property('BUILDDIR'),
+                                            name='StoreArtifacts', timeout=None,
+                                            description="Storing",
+                                            descriptionSuffix=["artifacts", "for", imageset.name],
+                                            descriptionDone="Stored"))

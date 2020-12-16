@@ -111,7 +111,8 @@ class Distro(object):
                  triggers=None,
                  pullrequest_type=None,
                  extra_config=None,
-                 extra_env=None):
+                 extra_env=None,
+                 parallel_builders=False):
         self.name = name
         self.reponame = reponame
         self.branch = branch
@@ -151,6 +152,7 @@ class Distro(object):
         else:
             self.extra_config = []
         self.extra_env = extra_env
+        self.parallel_builders = parallel_builders
 
     def codebases(self, repos):
         cbdict = {self.reponame: {'repository': repos[self.reponame].uri}}
@@ -476,7 +478,10 @@ class AutobuilderConfig(object):
         self.distros = distros
         self.distrodict = {d.name: d for d in self.distros}
         for d in self.distros:
-            d.builder_names = [d.name + '-' + imgset.name for imgset in d.targets]
+            if d.parallel_builders:
+                d.builder_names = [d.name + '-' + imgset.name for imgset in d.targets]
+            else:
+                d.builder_names = [d.name]
         all_builder_names = []
         for d in self.distros:
             all_builder_names += d.builder_names
@@ -574,18 +579,32 @@ class AutobuilderConfig(object):
                      'distro': d.name,
                      'extraconf': d.extra_config or []}
             repo = self.repos[d.reponame]
-            b += [BuilderConfig(name=d.name + '-' + imgset.name,
-                                workernames=self.worker_names,
-                                nextWorker=nextEC2Worker,
-                                properties=utils.dict_merge(props, {'imageset': imgset.name}),
-                                factory=factory.DistroImage(repourl=repo.uri,
-                                                            submodules=repo.submodules,
-                                                            branch=d.branch,
-                                                            codebase=d.reponame,
-                                                            imageset=imgset,
-                                                            triggers=d.triggers,
-                                                            extra_env=d.extra_env))
-                  for imgset in d.targets]
+            if d.parallel_builders:
+                b += [BuilderConfig(name=d.name + '-' + imgset.name,
+                                    workernames=self.worker_names,
+                                    nextWorker=nextEC2Worker,
+                                    properties=props,
+                                    factory=factory.DistroImage(repourl=repo.uri,
+                                                                submodules=repo.submodules,
+                                                                branch=d.branch,
+                                                                codebase=d.reponame,
+                                                                imagesets=[imgset],
+                                                                triggers=d.triggers,
+                                                                extra_env=d.extra_env))
+                      for imgset in d.targets]
+            else:
+                b.append(BuilderConfig(
+                    name=d.name,
+                    workernames=self.worker_names,
+                    nextWorker=nextEC2Worker,
+                    properties=props,
+                    factory=factory.DistroImage(repourl=repo.uri,
+                                                submodules=repo.submodules,
+                                                branch=d.branch,
+                                                codebase=d.reponame,
+                                                imagesets=d.targets,
+                                                triggers=d.triggers,
+                                                extra_env=d.extra_env)))
         return b
 
 
