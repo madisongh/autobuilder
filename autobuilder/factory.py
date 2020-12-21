@@ -155,10 +155,6 @@ class DistroImage(BuildFactory):
                     'fi; . %(prop:setup_script)s; printenv'
         # Setup steps
 
-        self.addStep(steps.RemoveDirectory('build/build', name='cleanup',
-                                           description="Removing old build directory",
-                                           descriptionDone="Removed old build directory"))
-
         # Clean copy of original PATH, before any setup scripts have been run, to ensure
         # we start fresh before each imageset, when we're running them sequentially.
         self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', 'export ORIGPATH="$PATH"; printenv'],
@@ -179,6 +175,11 @@ class DistroImage(BuildFactory):
             if imageset.artifacts is not None:
                 self.addStep(steps.SetProperty(name='SetImagesetArtifacts',
                                                property='artifacts', value=','.join(imageset.artifacts)))
+
+            self.addStep(steps.RemoveDirectory('build/build', name='cleanup',
+                                               description="Removing old build directory",
+                                               descriptionDone="Removed old build directory"))
+
             self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c',
                                                                util.Interpolate(setup_cmd)],
                                                       env=utils.dict_merge(extra_env, imageset_env),
