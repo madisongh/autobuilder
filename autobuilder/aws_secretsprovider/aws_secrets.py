@@ -4,6 +4,7 @@ from aws_secretsmanager_caching import SecretCache, SecretCacheConfig
 from buildbot import config
 from buildbot.secrets.providers.base import SecretProviderBase
 
+
 class AWSSecretsManagerProvider(SecretProviderBase):
     name = "SecretInAWS"
 
