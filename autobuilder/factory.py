@@ -54,7 +54,7 @@ def update_current_symlink(props):
 
 # noinspection PyUnusedLocal
 def extract_env_vars(rc, stdout, stderr):
-    pat = re.compile('^(' + '|'.join(ENV_VARS.keys()) + ')=(.*)')
+    pat = re.compile('^(' + '|'.join(ENV_VARS.keys()) + '|DISTROOVERRIDES)=(.*)')
     vardict = {}
     for line in stdout.split('\n'):
         m = pat.match(line)
@@ -64,6 +64,10 @@ def extract_env_vars(rc, stdout, stderr):
                 if "BBMULTICONFIG" not in envvars:
                     envvars.append("BBMULTICONFIG")
                 vardict["BB_ENV_EXTRAWHITE"] = ' '.join(envvars)
+            elif m.group(1) == "DISTROOVERRIDES":
+                val = m.group(2).strip('"')
+                if ':' not in val:
+                    vardict["DISTRO"] = val
             else:
                 vardict[m.group(1)] = m.group(2)
     return vardict
@@ -160,7 +164,7 @@ class DistroImage(BuildFactory):
         setup_cmd = 'PATH=`echo -n "$ORIGPATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \
                     'if [ -n "$VIRTUAL_ENV" ]; then ' + \
                     'PATH=`echo "$PATH" | sed -re "s,(^|:)$VIRTUAL_ENV/bin(:|$),\\2,g;s,^:,,"`; ' + \
-                    'fi; . %(prop:setup_script)s; printenv'
+                    'fi; . %(prop:setup_script)s; bitbake -e | grep "^DISTROOVERRIDES="; printenv'
         # Setup steps
 
         # Clean copy of original PATH, before any setup scripts have been run, to ensure
@@ -173,18 +177,19 @@ class DistroImage(BuildFactory):
                                                   descriptionSuffix=["original", "PATH"],
                                                   descriptionDone="Saved"))
         for imageset in imagesets:
-            self.addStep(steps.SetProperty(name='SetImageSet', property='imageset', value=imageset.name))
+            self.addStep(steps.SetProperty(name='SetImageSet_{}'.format(imageset.name),
+                                           property='imageset', value=imageset.name))
             imageset_env = {"ORIGPATH": util.Property("ORIGPATH")}
             if imageset.distro is not None:
                 imageset_env['DISTRO'] = imageset.distro
-                self.addStep(steps.SetProperty(name='SetImagesetDistro',
+                self.addStep(steps.SetProperty(name='SetImagesetDistro_{}'.format(imageset.name),
                                                property='DISTRO', value=imageset.distro))
 
             if imageset.artifacts is not None:
-                self.addStep(steps.SetProperty(name='SetImagesetArtifacts',
+                self.addStep(steps.SetProperty(name='SetImagesetArtifacts={}'.format(imageset.name),
                                                property='artifacts', value=','.join(imageset.artifacts)))
 
-            self.addStep(steps.RemoveDirectory('build/build', name='cleanup',
+            self.addStep(steps.RemoveDirectory('build/build', name='cleanup_{}'.format(imageset.name),
                                                description="Removing old build directory",
                                                descriptionDone="Removed old build directory"))
 
@@ -192,12 +197,13 @@ class DistroImage(BuildFactory):
                                                                util.Interpolate(setup_cmd)],
                                                       env=dict_merge(extra_env, imageset_env),
                                                       extract_fn=extract_env_vars,
-                                                      name='EnvironmentSetup',
+                                                      name='EnvironmentSetup_{}'.format(imageset.name),
                                                       description="Running",
                                                       descriptionSuffix=["setup", "script"],
                                                       descriptionDone="Ran"))
             self.addStep(steps.StringDownload(s=make_autoconf, workerdest='auto.conf',
-                                              workdir=util.Interpolate("%(prop:BUILDDIR)s/conf"), name='make-auto.conf',
+                                              workdir=util.Interpolate("%(prop:BUILDDIR)s/conf"),
+                                              name='make-auto.conf-{}'.format(imageset.name),
                                               description="Creating auto.conf",
                                               descriptionDone="Created auto.conf"))
 
@@ -273,7 +279,7 @@ class DistroImage(BuildFactory):
                                                     descriptionDone="Built"))
 
             self.addStep(steps.ShellCommand(command=store_artifacts_cmd, workdir=util.Property('BUILDDIR'),
-                                            name='StoreArtifacts', timeout=None,
+                                            name='StoreArtifacts_{}'.format(imageset.name), timeout=None,
                                             description="Storing",
                                             descriptionSuffix=["artifacts", "for", imageset.name],
                                             descriptionDone="Stored"))
