@@ -91,20 +91,15 @@ def worker_extraconfig(props):
 
 @util.renderer
 def make_autoconf(props):
-    pr = is_pull_request(props)
-    result = ['INHERIT += "rm_work buildstats-summary%s"' % ('' if pr else ' buildhistory')]
-    if not pr:
-        result.append('BB_GENERATE_MIRROR_TARBALLS = "1"')
-        result.append('UPDATE_DOWNLOADS_MIRROR = "1"')
-        result.append('UPDATE_SSTATE_MIRROR = "1"')
-    if without_sstate(props):
-        result.append('SSTATE_MIRRORS_forcevariable = ""')
-    if not pr:
-        result.append('BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"')
+    result = ['INHERIT += "rm_work buildstats-summary buildhistory"',
+              'BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"']
     # Worker-specific config
     result += worker_extraconfig(props) or []
+    # Distro-specific config
     result += props.getProperty('extraconf') or []
+    # Buildtype-specific config
     result += _get_btinfo(props).extra_config or []
+
     return util.Interpolate('\n'.join(result) + '\n')
 
 

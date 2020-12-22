@@ -39,9 +39,11 @@ class Buildtype(object):
 
 
 DEFAULT_BLDTYPES = [Buildtype('ci', defaulttype=True),
-                    Buildtype('no-sstate', disable_sstate=True),
+                    Buildtype('no-sstate', disable_sstate=True,
+                              extra_config=['SSTATE_MIRRORS_forcevariable = ""']),
                     Buildtype('release', production_release=True),
-                    Buildtype('pr', pullrequesttype=True)]
+                    Buildtype('pr', pullrequesttype=True,
+                              extra_config=['INHERIT_remove = "buildhistory"'])]
 
 
 class Repo(object):
