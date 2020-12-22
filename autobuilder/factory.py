@@ -113,7 +113,7 @@ def store_artifacts_cmd(props):
     cmd.append('--build-tag=%s' % build_tag(props))
     cmd.append('--buildername=' + props.getProperty('buildername'))
     cmd.append('--imageset=%s' % props.getProperty('imageset'))
-    cmd.append('--distro=%s' % props.getProperty('distro'))
+    cmd.append('--distro=%s' % props.getProperty('DISTRO'))
     cmd.append('--artifacts=%s' % props.getProperty('artifacts'))
     if update_current_symlink(props):
         cmd.append('--update-current')
