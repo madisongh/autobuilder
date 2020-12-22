@@ -8,13 +8,21 @@ from buildbot.plugins import steps, util
 from buildbot.process.factory import BuildFactory
 from buildbot.process.results import SKIPPED
 
-from autobuilder import settings, utils
+from autobuilder import settings
 
 ENV_VARS = {'PATH': util.Property('PATH'),
             'ORIGPATH': util.Property('ORIGPATH'),
             'BB_ENV_EXTRAWHITE': util.Property('BB_ENV_EXTRAWHITE'),
             'BUILDDIR': util.Property('BUILDDIR')
             }
+
+
+def dict_merge(*dict_args):
+    result = {}
+    for d in dict_args:
+        if d:
+            result.update(d)
+    return result
 
 
 def _get_btinfo(props):
@@ -182,7 +190,7 @@ class DistroImage(BuildFactory):
 
             self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c',
                                                                util.Interpolate(setup_cmd)],
-                                                      env=utils.dict_merge(extra_env, imageset_env),
+                                                      env=dict_merge(extra_env, imageset_env),
                                                       extract_fn=extract_env_vars,
                                                       name='EnvironmentSetup',
                                                       description="Running",
@@ -222,7 +230,7 @@ class DistroImage(BuildFactory):
                 sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
 
                 if target_images:
-                    tgtenv = utils.dict_merge(ENV_VARS, extra_env)
+                    tgtenv = dict_merge(ENV_VARS, extra_env)
                     tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
                     args = ["mc:{}:{}".format(img.mcname, arg) for img in target_images for arg in img.args]
                     cmd = util.Interpolate("bitbake %(kw:bitbake_option)s " + ' '.join(args),
@@ -234,7 +242,7 @@ class DistroImage(BuildFactory):
                                                     descriptionSuffix=[imageset.name, "(multiconfig)"],
                                                     descriptionDone="Built"))
                 if sdk_images:
-                    tgtenv = utils.dict_merge(ENV_VARS, extra_env)
+                    tgtenv = dict_merge(ENV_VARS, extra_env)
                     tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in sdk_images])
                     args = ["mc:{}:{}".format(img.mcname, arg) for img in sdk_images for arg in img.args]
                     cmd = util.Interpolate("bitbake %(kw:bitbake_option)s -c populate_sdk " + ' '.join(args),
@@ -247,7 +255,7 @@ class DistroImage(BuildFactory):
                                                     descriptionDone="Built"))
             else:
                 for i, img in enumerate(imageset.imagespecs, start=1):
-                    tgtenv = utils.dict_merge(ENV_VARS, extra_env)
+                    tgtenv = dict_merge(ENV_VARS, extra_env)
                     bbcmd = "bitbake"
                     if img.is_sdk:
                         bbcmd += " -c populate_sdk"
