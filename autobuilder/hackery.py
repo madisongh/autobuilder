@@ -1,6 +1,7 @@
 from abc import ABCMeta
 from twisted.mail.smtp import ESMTPSender
 
+
 class myESMTPSender(ESMTPSender, metaclass=ABCMeta):
     def _getContextFactory(self):
         if self.context is not None:
