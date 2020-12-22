@@ -15,9 +15,7 @@ from buildbot.config import BuilderConfig
 import jinja2
 from autobuilder import factory, settings
 from autobuilder.ec2 import MyEC2LatentWorker
-from autobuilder import utils
 
-DEFAULT_BLDTYPES = ['ci', 'no-sstate', 'snapshot', 'release', 'pr']
 RNG = SystemRandom()
 default_svp = {'name': '/dev/xvdf', 'size': 200,
                'type': 'standard', 'iops': None}
@@ -38,6 +36,12 @@ class Buildtype(object):
             self.extra_config = [extra_config] if isinstance(extra_config, str) else extra_config
         else:
             self.extra_config = []
+
+
+DEFAULT_BLDTYPES = [Buildtype('ci', defaulttype=True),
+                    Buildtype('no-sstate', disable_sstate=True),
+                    Buildtype('release', production_release=True),
+                    Buildtype('pr', pullrequesttype=True)]
 
 
 class Repo(object):
@@ -125,9 +129,7 @@ class Distro(object):
         self.triggerable = triggerable
         self.triggers = triggers
         self.buildtypes = buildtypes
-        if buildtypes is None:
-            self.buildtypes = [Buildtype(bt) for bt in DEFAULT_BLDTYPES]
-            self.buildtypes[0].defaulttype = True
+        self.buildtypes = buildtypes or DEFAULT_BLDTYPES
         self.btdict = {bt.name: bt for bt in self.buildtypes}
         defaultlist = [bt.name for bt in self.buildtypes if bt.defaulttype]
         if len(defaultlist) != 1:
