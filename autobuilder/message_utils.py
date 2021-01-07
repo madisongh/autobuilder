@@ -14,18 +14,21 @@ def getChangesForSourceStamps(master, sslist):
     defer.returnValue(changelist)
 
 
-# noinspection PyPep8Naming
-class AutobuilderMessageFormatter(MessageFormatter):
-    def __init__(self, template_dir=None, template_name=None,
-                 summary_filename=None, summary=None, **kwargs):
+class AutobuilderMessageTemplate(object):
+    def __init__(self, template_filename, template_dir=None):
         if template_dir is None:
             template_dir = os.path.join(os.path.dirname(__file__), "templates")
-        kwargs['template_dir'] = template_dir
-        super().__init__(template_name, **kwargs)
-        self.summary_template = None
-        if summary_filename or summary:
-            self.summary_template = self.getTemplate(summary_filename, template_dir, summary)
-            self.wantProperties = True
+        with open(os.path.join(template_dir, template_filename), "r") as f:
+            self.template = f.read()
+
+
+# noinspection PyPep8Naming
+class AutobuilderMessageFormatter(MessageFormatter):
+    def __init__(self, template=None, summary=None, **kwargs):
+        kwargs['template'] = template
+        super().__init__(**kwargs)
+        self.summary_template = summary
+        self.wantProperties = summary is not None
 
     @defer.inlineCallbacks
     def render_message_dict(self, master, context):
