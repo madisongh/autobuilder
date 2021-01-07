@@ -13,6 +13,7 @@ from buildbot.plugins import changes, schedulers, util, worker
 from buildbot.www.hooks.github import GitHubEventHandler
 from buildbot.config import BuilderConfig
 import jinja2
+import urllib.parse
 from autobuilder import factory, settings
 from autobuilder.ec2 import MyEC2LatentWorker
 
@@ -102,6 +103,46 @@ class TargetImageSet(object):
         if imagespecs is None:
             raise RuntimeError('No images defined for %s' % name)
         self.imagespecs = imagespecs
+
+
+class Layer(object):
+    def __init__(self, name, reponame, pokyurl, branches, email,
+                 repotimer=300,
+                 pullrequests=False,
+                 layerdir=None,
+                 machines=None,
+                 extra_config=None,
+                 extra_env=None,
+                 extra_options=None):
+        self.name = name
+        self.reponame = reponame
+        self.pokyurl = pokyurl
+        self.branches = branches
+        self.email = email
+        self._layerdir = layerdir
+        self.repotimer = repotimer
+        self.pullrequests = pullrequests
+        self.machines = machines or ['qemux86']
+        self.extra_config = extra_config
+        self.extra_env = extra_env
+        self.extra_options = extra_options
+
+    def layerdir(self, url):
+        if self._layerdir:
+            return self._layerdir
+        return os.path.splitext(os.path.basename(urllib.parse.urlparse(url).path))[0]
+
+    def codebases(self, repos):
+        cbdict = {self.reponame: {'repository': repos[self.reponame].uri}}
+        return cbdict
+
+    def codebaseparamlist(self, repos):
+        return [util.CodebaseParameter(codebase=self.reponame,
+                                       repository=util.FixedParameter(name='repository',
+                                                                      default=repos[self.reponame].uri),
+                                       branch=util.ChoiceStringParameter(name='branch',
+                                                                         choices=self.branches,
+                                                                         default=self.branches[0]))]
 
 
 class Distro(object):
@@ -338,6 +379,10 @@ def something_wants_pullrequests(payload):
         cfg = settings.get_config_for_builder(abcfg)
         try:
             reponame = cfg.codebasemap[url]
+            for layer in cfg.layers:
+                if layer.reponame == reponame and basebranch in layer.branches:
+                    log.msg('Found layer {} for repo {} and branch {}'.format(layer.name, reponame, basebranch))
+                    return layer.pullrequests
             for distro in cfg.distros:
                 if distro.reponame == reponame and distro.branch == basebranch:
                     log.msg('Found distro {} for repo {} and branch {}'.format(distro.name, reponame, basebranch))
@@ -346,7 +391,7 @@ def something_wants_pullrequests(payload):
                         return True
         except KeyError:
             pass
-    log.msg('No distro found for url {}, base branch {}'.format(url, basebranch))
+    log.msg('No distro or layer found for url {}, base branch {}'.format(url, basebranch))
     return False
 
 
@@ -450,7 +495,7 @@ class AutobuilderForceScheduler(schedulers.ForceScheduler):
 
 
 class AutobuilderConfig(object):
-    def __init__(self, name, workers, repos, distros):
+    def __init__(self, name, workers, repos, distros, layers):
         if name in settings.settings_dict():
             raise RuntimeError('Autobuilder config {} already exists'.format(name))
         self.name = name
@@ -484,20 +529,24 @@ class AutobuilderConfig(object):
         self.worker_names = [w.name for w in workers]
 
         self.repos = repos
-        self.distros = distros
+        self.distros = distros or []
+        self.layers = layers or []
         self.distrodict = {d.name: d for d in self.distros}
         for d in self.distros:
             if d.parallel_builders:
                 d.builder_names = [d.name + '-' + imgset.name for imgset in d.targets]
             else:
                 d.builder_names = [d.name]
-        all_builder_names = []
+        all_builder_names = [layer.name + '-checklayer' for layer in self.layers]
         for d in self.distros:
             all_builder_names += d.builder_names
         self.all_builder_names = sorted(all_builder_names)
         self.non_pr_scheduler_names = sorted([d.name for d in self.distros] +
-                                             [d.name + '-force' for d in self.distros])
-        self.pr_scheduler_names = sorted([d.name + '-pr' for d in self.distros if d.pullrequest_type])
+                                             [d.name + '-force' for d in self.distros] +
+                                             [layer.name + '-checklayer' for layer in self.layers] +
+                                             [layer.name + '-checklayer-force' for layer in self.layers])
+        self.pr_scheduler_names = sorted([d.name + '-pr' for d in self.distros if d.pullrequest_type] +
+                                         [layer.name + '-checklayer-pr' for layer in self.layers])
         self.all_scheduler_names = sorted(self.non_pr_scheduler_names + self.pr_scheduler_names)
         self.codebasemap = {self.repos[r].uri: r for r in self.repos}
         settings.set_config_for_builder(name, self)
@@ -514,6 +563,9 @@ class AutobuilderConfig(object):
                 for d in self.distros:
                     if d.reponame == r and d.push_type:
                         branches.add(d.branch)
+                for layer in self.layers:
+                    if layer.reponame == r and layer.push_type:
+                        branches.update(set(layer.branches))
                 pollers.append(changes.GitPoller(self.repos[r].uri,
                                                  workdir='gitpoller-' + self.repos[r].name,
                                                  branches=sorted(branches),
@@ -525,6 +577,25 @@ class AutobuilderConfig(object):
     @property
     def schedulers(self):
         s = []
+        for layer in self.layers:
+            if layer.pullrequests:
+                s.append(schedulers.AnyBranchScheduler(name=layer.name + '-checklayer-pr',
+                                                       change_filter=util.ChangeFilter(project=layer.name,
+                                                                                       branch=layer.branches,
+                                                                                       category=['pull']),
+                                                       treeStableTimer=layer.repotimer,
+                                                       codebases=layer.codebases(self.repos),
+                                                       builderNames=[layer.name + '-checklayer']))
+            s.append(schedulers.AnyBranchScheduler(name=layer.name + '-checklayer',
+                                                   change_filter=util.ChangeFilter(project=layer.name,
+                                                                                   branch=layer.branches,
+                                                                                   category=['push']),
+                                                   treeStableTimer=layer.repotimer,
+                                                   codebases=layer.codebases(self.repos),
+                                                   builderNames=[layer.name + '-checklayer']))
+            s.append(AutobuilderForceScheduler(name=layer.name + '-checklayer-force',
+                                               codebases=layer.codebaseparamlist(self.repos),
+                                               builderNames=[layer.name + '-checklayer']))
         for d in self.distros:
             if d.triggerable:
                 s.append(schedulers.Triggerable(name=d.name + '-triggered',
@@ -577,6 +648,27 @@ class AutobuilderConfig(object):
     @property
     def builders(self):
         b = []
+        for layer in self.layers:
+            props = {'project': layer.name,
+                     'repourl': self.repos[layer.reponame].uri,
+                     'autobuilder': self.name,
+                     'extraconf': layer.extra_config or []}
+            repo = self.repos[layer.reponame]
+            b.append(BuilderConfig(
+                name=layer.name + '-checklayer',
+                workernames=self.worker_names,
+                nextWorker=nextEC2Worker,
+                properties=props,
+                factory=factory.CheckLayer(
+                    repourl=repo.uri,
+                    layerdir=layer.layerdir(repo.uri),
+                    submodules=repo.submodules,
+                    pokyurl=layer.pokyurl,
+                    codebase=layer.reponame,
+                    extra_env=layer.extra_env,
+                    machines=layer.machines,
+                    extra_options=layer.extra_options)
+                ))
         for d in self.distros:
             props = {'artifacts_path': d.artifacts_path,
                      'project': d.name,
