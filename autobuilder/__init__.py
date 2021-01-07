@@ -1,6 +1,6 @@
 from .hackery import myESMTPSender
 from .abconfig import AutobuilderConfig, Buildtype, Distro, Repo, TargetImageSet
-from .abconfig import TargetImage, SdkImage
+from .abconfig import TargetImage, SdkImage, Layer
 from .abconfig import AutobuilderWorker, EC2Params, AutobuilderEC2Worker
 from .abconfig import AutobuilderGithubEventHandler
 from .ec2 import MyEC2LatentWorker
