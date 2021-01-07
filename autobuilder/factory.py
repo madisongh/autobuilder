@@ -38,7 +38,7 @@ def is_release_build(props):
 
 
 def is_pull_request(props):
-    return _get_btinfo(props).pullrequesttype
+    return props.getProperty('pullrequest', default=False)
 
 
 def without_sstate(props):
