@@ -583,6 +583,7 @@ class AutobuilderConfig(object):
                                                        change_filter=util.ChangeFilter(project=layer.name,
                                                                                        branch=layer.branches,
                                                                                        category=['pull']),
+                                                       properties={'pullrequest': True},
                                                        treeStableTimer=layer.repotimer,
                                                        codebases=layer.codebases(self.repos),
                                                        builderNames=[layer.name + '-checklayer']))
@@ -617,7 +618,10 @@ class AutobuilderConfig(object):
                 md_filter = util.ChangeFilter(project=d.name,
                                               codebase=d.reponame,
                                               category=['pull'])
-                props = {'buildtype': d.pullrequest_type}
+                props = {
+                    'buildtype': d.pullrequest_type,
+                    'pullrequest': True
+                }
                 s.append(schedulers.SingleBranchScheduler(name=d.name + '-pr',
                                                           change_filter=md_filter,
                                                           properties=props,
