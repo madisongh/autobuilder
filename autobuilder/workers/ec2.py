@@ -117,7 +117,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                 'supply both or neither of identifier, secret_identifier')
             if aws_id_file_path is None:
                 home = os.environ['HOME']
-                default_path = os.path.join(home, '.ec2', 'aws_id')
+                default_path = os.path.join(home, '.workers', 'aws_id')
                 if os.path.exists(default_path):
                     aws_id_file_path = default_path
             if aws_id_file_path:
@@ -141,7 +141,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             if region is not None:
                 for r in boto3.Session(
                         aws_access_key_id=identifier,
-                        aws_secret_access_key=secret_identifier).get_available_regions('ec2'):
+                        aws_secret_access_key=secret_identifier).get_available_regions('workers'):
 
                     if r == region:
                         region_found = r
@@ -167,8 +167,8 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                     region_name=region
                 )
 
-        self.ec2 = self.session.resource('ec2')
-        self.ec2_client = self.session.client('ec2')
+        self.ec2 = self.session.resource('workers')
+        self.ec2_client = self.session.client('workers')
 
         # Make a keypair
         #
@@ -226,7 +226,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
 
         # get the specified elastic IP, if any
         if elastic_ip is not None:
-            # Using ec2.vpc_addresses.filter(PublicIps=[elastic_ip]) throws a
+            # Using workers.vpc_addresses.filter(PublicIps=[elastic_ip]) throws a
             # NotImplementedError("Filtering not supported in describe_address.") in moto
             # https://github.com/spulec/moto/blob/100ec4e7c8aa3fde87ff6981e2139768816992e4/moto/ec2/responses/elastic_ip_addresses.py#L52
             addresses = self.ec2.meta.client.describe_addresses(
@@ -307,10 +307,10 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                 bid_price, count = self._bid_price_from_spot_price_history(instance_type)
                 if count == 0:
                     log.msg("{} {} no price history for {} in {}".format(
-                            self.__class__.__name__, self.workername, instance_type, self.placement))
+                        self.__class__.__name__, self.workername, instance_type, self.placement))
                     continue
             if self.max_spot_price is not None \
-               and bid_price > self.max_spot_price:
+                    and bid_price > self.max_spot_price:
                 bid_price = self.max_spot_price
             log.msg('%s %s requesting spot instance with price %0.4f' %
                     (self.__class__.__name__, self.workername, bid_price))
@@ -348,12 +348,12 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                 request, success = self._wait_for_request(reservation)
                 if not success:
                     log.msg('{} {} spot request not successful'.format(
-                            self.__class__.__name__, self.workername))
+                        self.__class__.__name__, self.workername))
                     continue
             except LatentWorkerFailedToSubstantiate as e:
                 reqid, status = e.args
                 log.msg('{} {} spot request {} rejected: {}'.format(
-                        self.__class__.__name__, self.workername, reqid, status))
+                    self.__class__.__name__, self.workername, reqid, status))
                 continue
 
             instance_id = request['InstanceId']
@@ -363,3 +363,62 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             return instance_id, image.id, start_time
         raise LatentWorkerFailedToSubstantiate(self.workername, "exhausted instance types")
 
+
+def active_slots(w):
+    return [wfb for wfb in w.workerforbuilders.values() if wfb.isBusy()]
+
+
+def nextEC2Worker(bldr, wfbs, br):
+    """
+    Called by BuildRequestDistributor to identify a worker to queue
+    a build to. Instead of using the default random selection provided
+    by buildbot, choose using the following algorithm.
+        - Prefer non-latent workers over latent workers
+        - Prefer running latent workers with available slots over non-running (even pending) ones.
+        - Prefer pending latent workers over those that are shut down or shutting down.
+        - Sort preferred latent workers based on number of available slots
+    :param bldr: Builder object
+    :param wfbs: list of WorkerForBuilder objects
+    :param br: BuildRequest object
+    :return: WorkerForBuilder object
+    """
+    from buildbot.worker.ec2 import TERMINATED, PENDING, RUNNING
+    log.msg('nextEC2Worker: %d WorkerForBuilders: %s' % (len(wfbs),
+                                                         ','.join([wfb.worker.name for wfb in wfbs])))
+    candidates = [wfb for wfb in wfbs if wfb.isAvailable()]
+    log.msg('nextEC2Worker: %d candidates: %s' % (len(candidates),
+                                                  ','.join([wfb.worker.name for wfb in candidates])))
+    wdict = {}
+    realworkers = []
+    for wfb in candidates:
+        if wfb.worker is not None and isinstance(wfb.worker, MyEC2LatentWorker):
+            if wfb.worker.instance:
+                statename = wfb.worker.instance.state['Name']
+            else:
+                statename = TERMINATED
+            if statename in [PENDING, RUNNING]:
+                if wfb.worker.max_builds:
+                    slots = wfb.worker.max_builds - len(active_slots(wfb.worker))
+                    # If this worker is running and has available worker slots, bump
+                    # its score so it gets chosen first.
+                    if slots > 0 and statename == RUNNING:
+                        slots += 100
+                    log.msg('nextEC2Worker:   worker %s score=%d' % (wfb.worker.name, slots))
+                    if slots in wdict.keys():
+                        wdict[slots].append(wfb)
+                    else:
+                        wdict[slots] = [wfb]
+            else:
+                if 0 in wdict.keys():
+                    wdict[0].append(wfb)
+                else:
+                    wdict[0] = [wfb]
+        else:
+            log.msg('nextEC2Worker:   non-latent worker: %s' % wfb.worker.name)
+            realworkers.append(wfb)
+    if len(realworkers) > 0:
+        log.msg('nextEC2Worker: chose (non-latent): %s' % realworkers[0].worker.name)
+        return realworkers[0]
+    best = sorted(wdict.keys(), reverse=True)[0]
+    log.msg('nextEC2Worker: chose: %s (score=%d)' % (wdict[best][0].worker.name, best))
+    return wdict[best][0]
