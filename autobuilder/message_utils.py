@@ -2,6 +2,7 @@ import os
 from buildbot.reporters.message import MessageFormatter, get_detected_status_text
 from twisted.internet import defer
 from twisted.python import log
+import jinja2
 
 
 @defer.inlineCallbacks
@@ -42,7 +43,7 @@ class AutobuilderMessageFormatter(MessageFormatter):
         if 'changes' not in context:
             context['changes'] = []
         if self.summary_template is not None:
-            summary = self.summary_template.render(context)
+            summary = jinja2.Template(self.summary_template).render(context)
             if msgdict['body'] is None:
                 msgdict['body'] = summary
             else:
