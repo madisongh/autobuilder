@@ -12,6 +12,7 @@ from twisted.python import log
 from buildbot.plugins import changes, schedulers, util, worker
 from buildbot.www.hooks.github import GitHubEventHandler
 from buildbot.config import BuilderConfig
+from buildbot.changes.changes import Change
 import jinja2
 import urllib.parse
 from autobuilder import factory, settings
@@ -338,34 +339,64 @@ class AutobuilderEC2Worker(AutobuilderWorker):
                                                                           self.master_ip_address)
 
 
-def get_project_for_url(repo_url, branch):
+def get_project_for_url(repo_urls, branch):
+    for abcfg in settings.settings_dict():
+        cfg = settings.get_config_for_builder(abcfg)
+        for repo_url in repo_urls:
+            try:
+                reponame = cfg.codebasemap[repo_url]
+                for layer in cfg.layers:
+                    if layer.reponame == reponame and branch in layer.branches:
+                        log.msg('Found layer {} for repo {} and branch {}'.format(layer.name, reponame, branch))
+                        return repo_url, layer.name
+                for distro in cfg.distros:
+                    if distro.reponame == reponame and distro.branch == branch:
+                        log.msg('Found distro {} for repo {} and branch {}'.format(distro.name, reponame, branch))
+                        if distro.push_type:
+                            log.msg('Distro {} wants pushes'.format(distro.name))
+                            return repo_url, distro.name
+            except KeyError:
+                pass
+    return None, None
+
+
+def layer_pr_filter(change: Change) -> bool:
+    target_branch = change.properties.getProperty('basename')
+    log.msg("layer_pr_filter: target_branch is {}".format(target_branch))
+    if target_branch is None:
+        return False
     for abcfg in settings.settings_dict():
         cfg = settings.get_config_for_builder(abcfg)
         try:
-            reponame = cfg.codebasemap[repo_url]
-            for distro in cfg.distros:
-                if distro.reponame == reponame and distro.branch == branch:
-                    log.msg('Found distro {} for repo {} and branch {}'.format(distro.name, reponame, branch))
-                    if distro.push_type:
-                        log.msg('Distro {} wants pushes'.format(distro.name))
-                        return distro.name
+            layer = cfg.layerdict[change.project]
+            log.msg("layer_pr_filter: checking layer {}, branches={}".format(layer.name, layer.branches))
+            return target_branch in layer.branches
         except KeyError:
             pass
-    return None
+    log.msg("layer_pr_filter: no match")
+    return False
 
 
 def codebasemap_from_github_payload(payload):
     if 'pull_request' in payload:
-        url = payload['pull_request']['base']['repo']['html_url']
+        base = payload['pull_request']['base']
+        urls = [base['repo']['html_url'],
+                base['repo']['clone_url'],
+                base['repo']['git_url'],
+                base['repo']['ssh_url']]
     else:
-        url = payload['repository']['html_url']
+        urls = [payload['repository']['html_url'],
+                payload['repository']['clone_url'],
+                payload['repository']['ssh_url'],
+                payload['repository']['git_url']]
     reponame = ''
     for abcfg in settings.settings_dict():
-        try:
-            reponame = settings.get_config_for_builder(abcfg).codebasemap[url]
-            break
-        except KeyError:
-            pass
+        for url in urls:
+            try:
+                reponame = settings.get_config_for_builder(abcfg).codebasemap[url]
+                break
+            except KeyError:
+                pass
     return reponame
 
 
@@ -373,25 +404,30 @@ def something_wants_pullrequests(payload):
     if 'pull_request' not in payload:
         log.msg('something_wants_pullrequests called for a non-PR?')
         return False
-    url = payload['pull_request']['base']['repo']['html_url']
-    basebranch = payload['pull_request']['base']['ref']
+    base = payload['pull_request']['base']
+    urls = [base['repo']['html_url'],
+            base['repo']['clone_url'],
+            base['repo']['git_url'],
+            base['repo']['ssh_url']]
+    basebranch = base['ref']
     for abcfg in settings.settings_dict():
         cfg = settings.get_config_for_builder(abcfg)
-        try:
-            reponame = cfg.codebasemap[url]
-            for layer in cfg.layers:
-                if layer.reponame == reponame and basebranch in layer.branches:
-                    log.msg('Found layer {} for repo {} and branch {}'.format(layer.name, reponame, basebranch))
-                    return layer.pullrequests
-            for distro in cfg.distros:
-                if distro.reponame == reponame and distro.branch == basebranch:
-                    log.msg('Found distro {} for repo {} and branch {}'.format(distro.name, reponame, basebranch))
-                    if distro.pullrequest_type:
-                        log.msg('Distro {} wants pull requests'.format(distro.name))
-                        return True
-        except KeyError:
-            pass
-    log.msg('No distro or layer found for url {}, base branch {}'.format(url, basebranch))
+        for url in urls:
+            try:
+                reponame = cfg.codebasemap[url]
+                for layer in cfg.layers:
+                    if layer.reponame == reponame and basebranch in layer.branches:
+                        log.msg('Found layer {} for repo {} and branch {}'.format(layer.name, reponame, basebranch))
+                        return layer.pullrequests
+                for distro in cfg.distros:
+                    if distro.reponame == reponame and distro.branch == basebranch:
+                        log.msg('Found distro {} for repo {} and branch {}'.format(distro.name, reponame, basebranch))
+                        if distro.pullrequest_type:
+                            log.msg('Distro {} wants pull requests'.format(distro.name))
+                            return True
+            except KeyError:
+                pass
+            log.msg('No distro or layer found for url {}, base branch {}'.format(url, basebranch))
     return False
 
 
@@ -406,14 +442,15 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         # This field is unused:
         user = None
         # user = payload['pusher']['name']
-        repo = payload['repository']['name']
-        repo_url = payload['repository']['html_url']
+        repo = payload['repository']
+        reponame = repo['name']
+        repo_urls = [repo[u] for u in ['html_url', 'clone_url', 'git_url', 'ssh_url']]
         ref = payload['ref']
         if not ref.startswith('refs/heads/'):
             log.msg('Ignoring non-branch push (ref: {})'.format(ref))
             return [], 'git'
         branch = ref.split('/')[-1]
-        project = get_project_for_url(repo_url, branch)
+        repo_url, project = get_project_for_url(repo_urls, branch)
         if project is None:
             return [], 'git'
 
@@ -432,6 +469,8 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         pr_changes = []
         number = payload['number']
         refname = 'refs/pull/{}/{}'.format(number, self.pullrequest_ref)
+        base = payload['pull_request']['base']
+        basename = base['ref']
         commits = payload['pull_request']['commits']
         title = payload['pull_request']['title']
         comments = payload['pull_request']['body']
@@ -445,27 +484,35 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         if self._has_skip(head_msg):
             log.msg("GitHub PR #{}, Ignoring: "
                     "head commit message contains skip pattern".format(number))
-            defer.returnValue(([], 'git'))
+            return [], 'git'
 
         action = payload.get('action')
         if action not in ('opened', 'reopened', 'synchronize'):
             log.msg("GitHub PR #{} {}, ignoring".format(number, action))
-            defer.returnValue((pr_changes, 'git'))
+            return(pr_changes, 'git')
 
         if not something_wants_pullrequests(payload):
             log.msg("GitHub PR#{}, Ignoring: no matching distro found".format(number))
-            defer.returnValue(([], 'git'))
+            return [], 'git'
+
+        files = yield self._get_pr_files(repo_full_name, number)
 
         properties = self.extractProperties(payload['pull_request'])
         properties.update({'event': event, 'prnumber': number})
+        properties.update({'basename': basename})
+        urls = [base['repo']['html_url'],
+                base['repo']['clone_url'],
+                base['repo']['git_url'],
+                base['repo']['ssh_url']]
+        repository, project = get_project_for_url(urls, basename)
         change = {
             'revision': payload['pull_request']['head']['sha'],
             'when_timestamp': dateparse(payload['pull_request']['created_at']),
             'branch': refname,
+            'files': files,
             'revlink': payload['pull_request']['_links']['html']['href'],
-            'repository': payload['repository']['html_url'],
-            'project': get_project_for_url(payload['pull_request']['base']['repo']['html_url'],
-                                           payload['pull_request']['base']['ref']),
+            'repository': repository,
+            'project': project,
             'category': 'pull',
             # TODO: Get author name based on login id using txgithub module
             'author': payload['sender']['login'],
@@ -484,7 +531,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
 
         log.msg("Received {} changes from GitHub PR #{}".format(
             len(pr_changes), number))
-        defer.returnValue((pr_changes, 'git'))
+        return pr_changes, 'git'
 
 
 class AutobuilderForceScheduler(schedulers.ForceScheduler):
@@ -532,6 +579,7 @@ class AutobuilderConfig(object):
         self.distros = distros or []
         self.layers = layers or []
         self.distrodict = {d.name: d for d in self.distros}
+        self.layerdict = {layer.name: layer for layer in self.layers}
         for d in self.distros:
             if d.parallel_builders:
                 d.builder_names = [d.name + '-' + imgset.name for imgset in d.targets]
@@ -580,9 +628,7 @@ class AutobuilderConfig(object):
         for layer in self.layers:
             if layer.pullrequests:
                 s.append(schedulers.AnyBranchScheduler(name=layer.name + '-checklayer-pr',
-                                                       change_filter=util.ChangeFilter(project=layer.name,
-                                                                                       branch=layer.branches,
-                                                                                       category=['pull']),
+                                                       change_filter=util.ChangeFilter(filter_fn=layer_pr_filter),
                                                        properties={'pullrequest': True},
                                                        treeStableTimer=layer.repotimer,
                                                        codebases=layer.codebases(self.repos),
