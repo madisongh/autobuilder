@@ -7,6 +7,20 @@ from autobuilder import settings
 from workers.config import AutobuilderEC2Worker
 from workers.ec2 import MyEC2LatentWorker
 
+ABCFG_DICT = {}
+
+
+def get_config_for_builder(name):
+    return ABCFG_DICT[name]
+
+
+def set_config_for_builder(name, val):
+    ABCFG_DICT[name] = val
+
+
+def settings_dict():
+    return ABCFG_DICT
+
 
 class Repo(object):
     def __init__(self, name, uri, pollinterval=None,
@@ -26,7 +40,7 @@ class AutobuilderForceScheduler(schedulers.ForceScheduler):
 
 class AutobuilderConfig(object):
     def __init__(self, name, workers, repos, distros, layers):
-        if name in settings.settings_dict():
+        if name in settings_dict():
             raise RuntimeError('Autobuilder config {} already exists'.format(name))
         self.name = name
         self.workers = []
@@ -68,7 +82,7 @@ class AutobuilderConfig(object):
         for d in self.distros:
             d.abconfig = self.name
         self.codebasemap = {self.repos[r].uri: r for r in self.repos}
-        settings.set_config_for_builder(name, self)
+        set_config_for_builder(name, self)
         self._builders = None
         self._schedulers = None
 

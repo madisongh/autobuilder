@@ -5,11 +5,10 @@ from buildbot.plugins import util
 from buildbot.config import BuilderConfig
 from buildbot.plugins import schedulers
 
-from abconfig import AutobuilderForceScheduler
+from abconfig import AutobuilderForceScheduler, ABCFG_DICT
 from github.handler import layer_pr_filter
 from factory import CheckLayer
 from workers.ec2 import nextEC2Worker
-from settings import ABCFG_DICT
 
 
 class Layer(object):

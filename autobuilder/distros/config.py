@@ -2,8 +2,7 @@ from buildbot.plugins import util
 from buildbot.plugins import schedulers
 from buildbot.config import BuilderConfig
 
-from abconfig import AutobuilderForceScheduler
-from settings import ABCFG_DICT, get_weekly_slot
+from abconfig import AutobuilderForceScheduler, ABCFG_DICT
 from factory import DistroImage
 from workers.ec2 import nextEC2Worker
 
@@ -82,7 +81,27 @@ class TargetImageSet(object):
         self.imagespecs = imagespecs
 
 
+class WeeklySlot(object):
+    def __init__(self, day, hour, minute):
+        self.dayOfWeek = day
+        self.hour = hour
+        self.minute = minute
+
+
 class Distro(object):
+
+    WEEKLY_SLOTS = [WeeklySlot(d, h, 0) for d in [5, 6] for h in [4, 8, 12, 16, 20]]
+    LAST_USED_WEEKLY = -1
+
+    @classmethod
+    def get_weekly_slot(cls):
+        try:
+            slot = cls.WEEKLY_SLOTS[cls.LAST_USED_WEEKLY + 1]
+            cls.LAST_USED_WEEKLY += 1
+        except IndexError:
+            raise RuntimeError('too many weekly builds scheduled')
+        return slot
+
     def __init__(self, name, reponame, branch, email, path,
                  targets=None,
                  setup_script='./setup-env',
@@ -235,7 +254,7 @@ class Distro(object):
                                                properties=forceprops,
                                                builderNames=builder_names))
             if self.weekly_type is not None:
-                slot = get_weekly_slot()
+                slot = self.get_weekly_slot()
                 s.append(schedulers.Nightly(name=self.name + '-' + 'weekly',
                                             properties=dict(buildtype=self.weekly_type),
                                             codebases=self.codebases(repos),

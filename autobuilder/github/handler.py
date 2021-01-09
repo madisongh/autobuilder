@@ -6,12 +6,13 @@ from dateutil.parser import parse as dateparse
 from twisted.internet import defer
 from twisted.python import log
 
+import abconfig
 import settings
 
 
 def get_project_for_url(repo_urls, branch):
-    for abcfg in settings.settings_dict():
-        cfg = settings.get_config_for_builder(abcfg)
+    for abcfg in abconfig.settings_dict():
+        cfg = abconfig.get_config_for_builder(abcfg)
         for repo_url in repo_urls:
             try:
                 reponame = cfg.codebasemap[repo_url]
@@ -35,8 +36,8 @@ def layer_pr_filter(change: Change) -> bool:
     log.msg("layer_pr_filter: target_branch is {}".format(target_branch))
     if target_branch is None:
         return False
-    for abcfg in settings.settings_dict():
-        cfg = settings.get_config_for_builder(abcfg)
+    for abcfg in abconfig.settings_dict():
+        cfg = abconfig.get_config_for_builder(abcfg)
         try:
             layer = cfg.layerdict[change.project]
             log.msg("layer_pr_filter: checking layer {}, branches={}".format(layer.name, layer.branches))
@@ -60,10 +61,10 @@ def codebasemap_from_github_payload(payload):
                 payload['repository']['ssh_url'],
                 payload['repository']['git_url']]
     reponame = ''
-    for abcfg in settings.settings_dict():
+    for abcfg in abconfig.settings_dict():
         for url in urls:
             try:
-                reponame = settings.get_config_for_builder(abcfg).codebasemap[url]
+                reponame = abconfig.get_config_for_builder(abcfg).codebasemap[url]
                 break
             except KeyError:
                 pass
@@ -80,8 +81,8 @@ def something_wants_pullrequests(payload):
             base['repo']['git_url'],
             base['repo']['ssh_url']]
     basebranch = base['ref']
-    for abcfg in settings.settings_dict():
-        cfg = settings.get_config_for_builder(abcfg)
+    for abcfg in abconfig.settings_dict():
+        cfg = abconfig.get_config_for_builder(abcfg)
         for url in urls:
             try:
                 reponame = cfg.codebasemap[url]
