@@ -4,9 +4,9 @@ from buildbot.plugins import util, steps
 from buildbot.process.factory import BuildFactory
 from buildbot.process.results import SKIPPED
 
-import abconfig
-import settings
-from factory.base import is_pull_request, worker_extraconfig, extract_env_vars, dict_merge, ENV_VARS, datestamp
+import autobuilder.abconfig as abconfig
+from autobuilder.factory.base import is_pull_request, worker_extraconfig
+from autobuilder.factory.base import extract_env_vars, dict_merge, ENV_VARS, datestamp
 
 
 def _get_btinfo(props):
