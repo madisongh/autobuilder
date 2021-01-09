@@ -141,7 +141,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             if region is not None:
                 for r in boto3.Session(
                         aws_access_key_id=identifier,
-                        aws_secret_access_key=secret_identifier).get_available_regions('workers'):
+                        aws_secret_access_key=secret_identifier).get_available_regions('ec2'):
 
                     if r == region:
                         region_found = r
@@ -167,8 +167,8 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                     region_name=region
                 )
 
-        self.ec2 = self.session.resource('workers')
-        self.ec2_client = self.session.client('workers')
+        self.ec2 = self.session.resource('ec2')
+        self.ec2_client = self.session.client('ec2')
 
         # Make a keypair
         #
@@ -283,21 +283,18 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         timestamp_yesterday = time.gmtime(int(time.time() - 86400))
         spot_history_starttime = time.strftime(
             '%Y-%m-%dT%H:%M:%SZ', timestamp_yesterday)
-        spot_prices = self.ec2.meta.client.describe_spot_price_history(
+        ret = self.ec2.meta.client.describe_spot_price_history(
             StartTime=spot_history_starttime,
             ProductDescriptions=[self.product_description],
+            InstanceTypes=[instance_type],
             AvailabilityZone=self.placement)
-        price_sum = 0.0
-        price_count = 0
-        for price in spot_prices['SpotPriceHistory']:
-            if price['InstanceType'] == instance_type:
-                price_sum += float(price['SpotPrice'])
-                price_count += 1
-        if price_count == 0:
-            bid_price = 0.02
-        else:
-            bid_price = (price_sum / price_count) * self.price_multiplier
-        return bid_price, price_count
+        if 'SpotPriceHistory' not in ret:
+            return 0.0, 0
+        spot_prices = ret['SpotPriceHistory']
+        if len(spot_prices) == 0:
+            return 0.0, 0
+        bid = (sum([float(price['SpotPrice']) for price in spot_prices]) / len(spot_prices)) * self.price_multiplier
+        return bid, len(spot_prices)
 
     def _request_spot_instance(self):
         for instance_type in self.instance_types:
