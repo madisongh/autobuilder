@@ -1,29 +1,11 @@
-# Copyright (c) 2014-2020 by Matthew Madison
-# Distributed under license.
-
-import re
-import os
 import time
 
-from buildbot.plugins import steps, util
+from buildbot.plugins import util, steps
 from buildbot.process.factory import BuildFactory
 from buildbot.process.results import SKIPPED
 
-from autobuilder import settings
-
-ENV_VARS = {'PATH': util.Property('PATH'),
-            'ORIGPATH': util.Property('ORIGPATH'),
-            'BB_ENV_EXTRAWHITE': util.Property('BB_ENV_EXTRAWHITE'),
-            'BUILDDIR': util.Property('BUILDDIR')
-            }
-
-
-def dict_merge(*dict_args):
-    result = {}
-    for d in dict_args:
-        if d:
-            result.update(d)
-    return result
+import settings
+from factory.base import is_pull_request, worker_extraconfig, extract_env_vars, dict_merge, ENV_VARS, datestamp
 
 
 def _get_btinfo(props):
@@ -35,10 +17,6 @@ def _get_btinfo(props):
 
 def is_release_build(props):
     return _get_btinfo(props).production_release
-
-
-def is_pull_request(props):
-    return props.getProperty('pullrequest', default=False)
 
 
 def without_sstate(props):
@@ -53,41 +31,12 @@ def update_current_symlink(props):
     return _get_btinfo(props).current_symlink
 
 
-# noinspection PyUnusedLocal
-def extract_env_vars(rc, stdout, stderr):
-    pat = re.compile('^(' + '|'.join(ENV_VARS.keys()) + '|DISTROOVERRIDES)=(.*)')
-    vardict = {}
-    for line in stdout.split('\n'):
-        m = pat.match(line)
-        if m is not None:
-            if m.group(1) == "BB_ENV_EXTRAWHITE":
-                envvars = m.group(2).split()
-                if "BBMULTICONFIG" not in envvars:
-                    envvars.append("BBMULTICONFIG")
-                vardict["BB_ENV_EXTRAWHITE"] = ' '.join(envvars)
-            elif m.group(1) == "DISTROOVERRIDES":
-                val = m.group(2).strip('"')
-                if ':' not in val:
-                    vardict["DISTRO"] = val
-            else:
-                vardict[m.group(1)] = m.group(2)
-    return vardict
-
-
 def build_tag(props):
     if is_pull_request(props):
         return '%s-PR-%d' % (props.getProperty('datestamp') or time.strftime('%y%m%d'),
                              props.getProperty('prnumber'))
     return '%s-%04d' % (props.getProperty('datestamp') or time.strftime('%Y%m%d'),
                         props.getProperty('buildnumber'))
-
-
-def worker_extraconfig(props):
-    abcfg = settings.get_config_for_builder(props.getProperty('autobuilder'))
-    wcfg = abcfg.worker_cfgs[props.getProperty('workername')]
-    if wcfg:
-        return wcfg.conftext
-    return None
 
 
 @util.renderer
@@ -100,16 +49,6 @@ def make_autoconf(props):
     result += props.getProperty('extraconf') or []
     # Buildtype-specific config
     result += _get_btinfo(props).extra_config or []
-
-    return util.Interpolate('\n'.join(result) + '\n')
-
-
-@util.renderer
-def make_layercheck_autoconf(props):
-    # Worker-specific config
-    result = worker_extraconfig(props) or []
-    # Distro-specific config
-    result += props.getProperty('extraconf') or []
 
     return util.Interpolate('\n'.join(result) + '\n')
 
@@ -136,12 +75,6 @@ def bitbake_options(props):
     opts = ''
     if keep_going(props):
         opts += ' -k'
-
-
-# noinspection PyUnusedLocal
-@util.renderer
-def datestamp(props):
-    return str(time.strftime("%Y%m%d"))
 
 
 class DistroImage(BuildFactory):
@@ -289,90 +222,3 @@ class DistroImage(BuildFactory):
                                             description="Storing",
                                             descriptionSuffix=["artifacts", "for", imageset.name],
                                             descriptionDone="Stored"))
-
-
-class CheckLayer(BuildFactory):
-    def __init__(self, repourl, layerdir, pokyurl, branch='master', pokybranch=None,
-                 codebase='', extra_env=None, machines=None,
-                 extra_options=None, submodules=False):
-        BuildFactory.__init__(self)
-        self.addStep(steps.SetProperty(name='SetDatestamp',
-                                       property='datestamp', value=datestamp))
-        if pokybranch is None:
-            pokybranch = branch.split('-')[0]
-        self.addStep(steps.ShellCommand(command=['git', 'clone',
-                                                 '--branch', pokybranch,
-                                                 '--depth', '1', pokyurl,
-                                                 'poky'],
-                                        name='poky-clone-' + pokybranch,
-                                        description="Cloning",
-                                        descriptionSuffix=[pokyurl],
-                                        descriptionDone="Cloned"))
-        self.addStep(steps.Git(repourl=repourl,
-                               workdir=os.path.join("build", "poky", layerdir),
-                               submodules=submodules,
-                               branch=branch,
-                               codebase=codebase,
-                               name='git-checkout-{}'.format(branch),
-                               mode='full',
-                               method='clobber',
-                               doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
-                               hideStepIf=lambda results, step: results == SKIPPED))
-        if 'github.com' in repourl:
-            self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
-                                      workdir=os.path.join("build", "poky", layerdir),
-                                      branch=branch, codebase=codebase,
-                                      name='git-checkout-pullrequest-ref',
-                                      mode='full',
-                                      method='clobber',
-                                      doStepIf=lambda step: is_pull_request(step.build.getProperties()),
-                                      hideStepIf=lambda results, step: results == SKIPPED))
-        # First, remove duplicates from original PATH (saved in ORIGPATH env var),
-        # then strip out the virtualenv bin directory if we're in a virtualenv.
-        setup_cmd = 'PATH=`echo -n "$ORIGPATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \
-                    'if [ -n "$VIRTUAL_ENV" ]; then ' + \
-                    'PATH=`echo "$PATH" | sed -re "s,(^|:)$VIRTUAL_ENV/bin(:|$),\\2,g;s,^:,,"`; ' + \
-                    'fi; . oe-init-build-env; bitbake -e | grep "^DISTROOVERRIDES="; printenv'
-        # Setup steps
-
-        # Clean copy of original PATH, before any setup scripts have been run, to ensure
-        # we start fresh before each imageset, when we're running them sequentially.
-        self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', 'export ORIGPATH="$PATH"; printenv'],
-                                                  env=extra_env,
-                                                  extract_fn=extract_env_vars,
-                                                  name='save_path',
-                                                  description="Saving",
-                                                  descriptionSuffix=["original", "PATH"],
-                                                  descriptionDone="Saved"))
-
-        self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', util.Interpolate(setup_cmd)],
-                                                  workdir=os.path.join("build", "poky"),
-                                                  env=dict_merge(extra_env,
-                                                                 {"ORIGPATH": util.Property("ORIGPATH")}),
-                                                  extract_fn=extract_env_vars,
-                                                  name='EnvironmentSetup',
-                                                  description="Running",
-                                                  descriptionSuffix=["setup", "script"],
-                                                  descriptionDone="Ran"))
-        self.addStep(steps.StringDownload(s=make_layercheck_autoconf, workerdest='auto.conf',
-                                          workdir=util.Interpolate("%(prop:BUILDDIR)s/conf"),
-                                          name='make-auto.conf',
-                                          description="Creating",
-                                          descriptionSuffix=["auto.conf"],
-                                          descriptionDone="Created"))
-
-        cmd = "yocto-check-layer"
-        if extra_options:
-            cmd += " " + extra_options
-        if machines is None:
-            cmd += " --machines qemux86"
-        else:
-            cmd += " --machines " + " ".join(machines)
-        cmd += " -- ../{}".format(layerdir)
-        self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
-                                        env=dict_merge(ENV_VARS, extra_env),
-                                        workdir=util.Property('BUILDDIR'),
-                                        name='yocto_check_layer',
-                                        description="Checking",
-                                        descriptionSuffix="layer",
-                                        descriptionDone="Checked"))
