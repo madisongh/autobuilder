@@ -279,38 +279,42 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             self.failed_to_start(self.instance.id, self.instance.state['Name'])
         return None
 
-    def _bid_price_from_spot_price_history(self, instance_type):
+    def _bid_price_from_spot_price_history(self):
         timestamp_yesterday = time.gmtime(int(time.time() - 86400))
         spot_history_starttime = time.strftime(
             '%Y-%m-%dT%H:%M:%SZ', timestamp_yesterday)
         ret = self.ec2.meta.client.describe_spot_price_history(
             StartTime=spot_history_starttime,
             ProductDescriptions=[self.product_description],
-            InstanceTypes=[instance_type],
+            InstanceTypes=self.instance_types,
             AvailabilityZone=self.placement)
         if 'SpotPriceHistory' not in ret:
-            return 0.0, 0
-        spot_prices = ret['SpotPriceHistory']
-        if len(spot_prices) == 0:
-            return 0.0, 0
-        bid = (sum([float(price['SpotPrice']) for price in spot_prices]) / len(spot_prices)) * self.price_multiplier
-        return bid, len(spot_prices)
+            return {}
+        info = {}
+        for entry in ret['SpotPriceHistory']:
+            itype = entry['InstanceType']
+            price = float(entry['SpotPrice'])
+            if itype in info:
+                info[itype].append(price)
+            else:
+                info[itype] = [price]
+        bid_prices = {}
+        for itype, pricelist in info.items():
+            bid = (sum(pricelist)/len(pricelist)) * self.price_multiplier
+            if self.max_spot_price is not None and bid > self.max_spot_price:
+                bid = self.max_spot_price
+            bid_prices[itype] = bid
+
+        return bid_prices
 
     def _request_spot_instance(self):
-        for instance_type in self.instance_types:
-            if self.price_multiplier is None:
-                bid_price = self.max_spot_price
-            else:
-                bid_price, count = self._bid_price_from_spot_price_history(instance_type)
-                if count == 0:
-                    log.msg("{} {} no price history for {} in {}".format(
-                        self.__class__.__name__, self.workername, instance_type, self.placement))
-                    continue
-            if self.max_spot_price is not None \
-                    and bid_price > self.max_spot_price:
-                bid_price = self.max_spot_price
-            log.msg('%s %s requesting spot instance with price %0.4f' %
-                    (self.__class__.__name__, self.workername, bid_price))
+        if self.price_multiplier is None:
+            bid_prices = {itype: self.max_spot_price for itype in self.instance_types}
+        else:
+            bid_prices = self._bid_price_from_spot_price_history()
+        for instance_type, bid_price in sorted(bid_prices.items(), key=lambda x: x[1]):
+            log.msg('%s %s requesting spot instance %s with price %0.4f' %
+                    (self.__class__.__name__, self.workername, instance_type, bid_price))
             reservations = self.ec2.meta.client.request_spot_instances(
                 SpotPrice=str(bid_price),
                 LaunchSpecification=self._remove_none_opts(
