@@ -4,12 +4,13 @@ from buildbot.plugins import util, steps
 from buildbot.process.factory import BuildFactory
 from buildbot.process.results import SKIPPED
 
+import abconfig
 import settings
 from factory.base import is_pull_request, worker_extraconfig, extract_env_vars, dict_merge, ENV_VARS, datestamp
 
 
 def _get_btinfo(props):
-    abcfg = settings.get_config_for_builder(props.getProperty('autobuilder'))
+    abcfg = abconfig.get_config_for_builder(props.getProperty('autobuilder'))
     distro = abcfg.distrodict[props.getProperty('distro')]
     buildtype = props.getProperty('buildtype')
     return distro.btdict[buildtype]

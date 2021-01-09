@@ -3,6 +3,7 @@ import time
 
 from buildbot.plugins import util
 
+import abconfig
 import settings
 
 ENV_VARS = {'PATH': util.Property('PATH'),
@@ -45,7 +46,7 @@ def extract_env_vars(rc, stdout, stderr):
 
 
 def worker_extraconfig(props):
-    abcfg = settings.get_config_for_builder(props.getProperty('autobuilder'))
+    abcfg = abconfig.get_config_for_builder(props.getProperty('autobuilder'))
     wcfg = abcfg.worker_cfgs[props.getProperty('workername')]
     if wcfg:
         return wcfg.conftext
