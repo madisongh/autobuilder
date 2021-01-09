@@ -3,9 +3,8 @@ Autobuilder configuration class.
 """
 from twisted.internet import defer
 from buildbot.plugins import changes, schedulers, worker
-from autobuilder import settings
-from workers.config import AutobuilderEC2Worker
-from workers.ec2 import MyEC2LatentWorker
+from autobuilder.workers.config import AutobuilderEC2Worker
+from autobuilder.workers.ec2 import MyEC2LatentWorker
 
 ABCFG_DICT = {}
 

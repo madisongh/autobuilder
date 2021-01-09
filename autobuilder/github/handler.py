@@ -6,8 +6,7 @@ from dateutil.parser import parse as dateparse
 from twisted.internet import defer
 from twisted.python import log
 
-import abconfig
-import settings
+import autobuilder.abconfig as abconfig
 
 
 def get_project_for_url(repo_urls, branch):

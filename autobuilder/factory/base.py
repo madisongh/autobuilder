@@ -3,8 +3,7 @@ import time
 
 from buildbot.plugins import util
 
-import abconfig
-import settings
+import autobuilder.abconfig as abconfig
 
 ENV_VARS = {'PATH': util.Property('PATH'),
             'ORIGPATH': util.Property('ORIGPATH'),

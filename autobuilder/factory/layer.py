@@ -4,7 +4,8 @@ from buildbot.plugins import util, steps
 from buildbot.process.factory import BuildFactory
 from buildbot.process.results import SKIPPED
 
-from factory.base import worker_extraconfig, datestamp, is_pull_request, extract_env_vars, dict_merge, ENV_VARS
+from autobuilder.factory.base import worker_extraconfig, datestamp, is_pull_request
+from autobuilder.factory.base import extract_env_vars, dict_merge, ENV_VARS
 
 
 @util.renderer

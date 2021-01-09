@@ -2,9 +2,9 @@ from buildbot.plugins import util
 from buildbot.plugins import schedulers
 from buildbot.config import BuilderConfig
 
-from abconfig import AutobuilderForceScheduler, ABCFG_DICT
-from factory import DistroImage
-from workers.ec2 import nextEC2Worker
+from autobuilder.abconfig import AutobuilderForceScheduler, ABCFG_DICT
+from autobuilder.factory.distro import DistroImage
+from autobuilder.workers.ec2 import nextEC2Worker
 
 
 class Buildtype(object):
