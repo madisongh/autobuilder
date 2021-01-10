@@ -30,7 +30,8 @@ class EC2Params(object):
                  scratchvol=False, scratchvol_params=None,
                  instance_profile_name=None, spot_instance=False,
                  max_spot_price=None, price_multiplier=None,
-                 instance_types=None, build_wait_timeout=None):
+                 instance_types=None, build_wait_timeout=None,
+                 subnets=None):
         self.instance_type = instance_type
         self.instance_types = instance_types
         self.ami = ami
@@ -38,6 +39,7 @@ class EC2Params(object):
         self.region = region
         self.secgroup_ids = secgroup_ids
         self.subnet = subnet
+        self.subnets = subnets
         self.elastic_ip = elastic_ip
         self.tags = tags
         if build_wait_timeout:
@@ -63,9 +65,18 @@ class EC2Params(object):
             else:
                 if not instance_types:
                     raise ValueError('Missing instance_types for spot instance worker config')
+            if subnet:
+                if subnets:
+                    raise ValueError('Specify only one of subnet, subnets for spot instances')
+                self.subnets = [subnet]
+                self.subnet = None
+            elif not subnets:
+                raise ValueError('Missing subnets for spot instance worker config')
         else:
             if instance_types:
                 raise ValueError('instance_types only valid for spot instance worker configs')
+            if subnets:
+                raise ValueError('subnets only valid for spot instance worker configs')
             if not instance_type:
                 raise ValueError('Invalid instance_type')
 
@@ -136,5 +147,3 @@ class AutobuilderEC2Worker(AutobuilderWorker):
         return 'WORKERNAME="{}"\nWORKERSECRET="{}"\nMASTER="{}"\n'.format(self.name,
                                                                           self.password,
                                                                           self.master_ip_address)
-
-

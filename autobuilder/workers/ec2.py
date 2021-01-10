@@ -32,6 +32,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                  subnet_id=None, security_group_ids=None, instance_profile_name=None,
                  block_device_map=None, session=None,
                  instance_types=None,
+                 subnet_ids=None,
                  **kwargs):
 
         if volumes is None:
@@ -51,9 +52,19 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                     raise ValueError('only one of instance_type or instance_types should be provided')
                 else:
                     self.instance_types = instance_types
+            if subnet_ids is None:
+                if subnet_id:
+                    self.subnet_ids = [subnet_id]
+            else:
+                if subnet_id:
+                    raise ValueError('only one of subnet_id or subnet_ids should be provided')
+                else:
+                    self.subnet_ids = subnet_ids
         else:
             if instance_types:
                 raise ValueError('instance_types only valid for spot_instance workers')
+            if subnet_ids is not None:
+                raise ValueError('subnet_ids only valid for spot instances')
 
         # noinspection PyCallByClass
         AbstractLatentWorker.__init__(self, name, password, **kwargs)
@@ -64,7 +75,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         if 'build_wait_timeout' not in kwargs:
             self.build_wait_timeout = 0 if spot_instance else 300
 
-        if security_name and subnet_id:
+        if security_name and (subnet_id or subnet_ids):
             raise ValueError(
                 'security_name (EC2 classic security groups) is not supported '
                 'in a VPC.  Use security_group_ids instead.')
@@ -237,7 +248,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             allocation_id = addresses[0]['AllocationId']
             elastic_ip = self.ec2.VpcAddress(allocation_id)
         self.elastic_ip = elastic_ip
-        self.subnet_id = subnet_id
+
         self.security_group_ids = security_group_ids
         self.classic_security_groups = [
             self.security_name] if self.security_name else None
@@ -245,8 +256,23 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         self.tags = tags
         self.block_device_map = self.create_block_device_mapping(
             block_device_map) if block_device_map else None
-        if self.placement is None and self.subnet_id:
-            self.placement = self.ec2.Subnet(self.subnet_id).availability_zone
+        if self.spot_instance:
+            if self.placement is None and len(self.subnet_ids) == 1:
+                self.placement = self.ec2.Subnet(self.subnet_ids[0]).availability_zone
+                self.az_to_subnet = {self.placement: self.subnet_ids[0]}
+            if len(self.subnet_ids) == 0:
+                self.spot_zones = [self.placement]
+            else:
+                self.spot_zones = []
+                self.az_to_subnet = {}
+                for i in self.subnet_ids:
+                    az = self.ec2.Subnet(i).availability_zone
+                    self.spot_zones.append(az)
+                    self.az_to_subnet[az] = i
+        else:
+            self.subnet_id = subnet_id
+            if self.placement is None:
+                self.placement = self.ec2.Subnet(self.subnet_id).availability_zone
 
     def _start_instance(self):
         image = self.get_image()
@@ -284,26 +310,26 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
         spot_history_starttime = time.strftime(
             '%Y-%m-%dT%H:%M:%SZ', timestamp_yesterday)
         ret = self.ec2.meta.client.describe_spot_price_history(
+            Filters=[dict(Name='availability-zone', Values=self.spot_zones)],
             StartTime=spot_history_starttime,
             ProductDescriptions=[self.product_description],
-            InstanceTypes=self.instance_types,
-            AvailabilityZone=self.placement)
+            InstanceTypes=self.instance_types)
         if 'SpotPriceHistory' not in ret:
             return {}
         info = {}
         for entry in ret['SpotPriceHistory']:
-            itype = entry['InstanceType']
+            k = '{}:{}'.format(entry['AvailabilityZone'], entry['InstanceType'])
             price = float(entry['SpotPrice'])
-            if itype in info:
-                info[itype].append(price)
+            if k in info:
+                info[k].append(price)
             else:
-                info[itype] = [price]
+                info[k] = [price]
         bid_prices = {}
-        for itype, pricelist in info.items():
+        for k, pricelist in info.items():
             bid = (sum(pricelist)/len(pricelist)) * self.price_multiplier
             if self.max_spot_price is not None and bid > self.max_spot_price:
                 bid = self.max_spot_price
-            bid_prices[itype] = bid
+            bid_prices[k] = bid
 
         return bid_prices
 
@@ -312,9 +338,11 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             bid_prices = {itype: self.max_spot_price for itype in self.instance_types}
         else:
             bid_prices = self._bid_price_from_spot_price_history()
-        for instance_type, bid_price in sorted(bid_prices.items(), key=lambda x: x[1]):
-            log.msg('%s %s requesting spot instance %s with price %0.4f' %
-                    (self.__class__.__name__, self.workername, instance_type, bid_price))
+        for k, bid_price in sorted(bid_prices.items(), key=lambda x: x[1]):
+            zone, instance_type = k.split(':')
+            subnet_id = self.az_to_subnet[zone]
+            log.msg('%s %s requesting spot instance %s in zone %s with price %0.4f' %
+                    (self.__class__.__name__, self.workername, instance_type, zone, bid_price))
             reservations = self.ec2.meta.client.request_spot_instances(
                 SpotPrice=str(bid_price),
                 LaunchSpecification=self._remove_none_opts(
@@ -325,12 +353,12 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                               if self.user_data else None),
                     InstanceType=instance_type,
                     Placement=self._remove_none_opts(
-                        AvailabilityZone=self.placement,
+                        AvailabilityZone=zone,
                     ),
                     NetworkInterfaces=[{'AssociatePublicIpAddress': True,
                                         'DeviceIndex': 0,
                                         'Groups': self.security_group_ids,
-                                        'SubnetId': self.subnet_id}],
+                                        'SubnetId': subnet_id}],
                     BlockDeviceMappings=self.block_device_map,
                     IamInstanceProfile=self._remove_none_opts(
                         Name=self.instance_profile_name,
@@ -358,6 +386,8 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                 continue
 
             instance_id = request['InstanceId']
+            self.placement = zone
+            self.subnet_id = subnet_id
             self.instance = self.ec2.Instance(instance_id)
             image = self.get_image()
             instance_id, start_time = self._wait_for_instance()
