@@ -56,6 +56,7 @@ class AutobuilderConfig(object):
                                                       security_group_ids=w.ec2params.secgroup_ids,
                                                       region=w.ec2params.region,
                                                       subnet_id=w.ec2params.subnet,
+                                                      subnet_ids=w.ec2params.subnets,
                                                       user_data=w.userdata(),
                                                       elastic_ip=w.ec2params.elastic_ip,
                                                       tags=w.ec2tags,
