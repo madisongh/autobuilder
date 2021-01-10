@@ -1,4 +1,5 @@
 import os
+import re
 
 from buildbot.plugins import util, steps
 from buildbot.process.factory import BuildFactory
@@ -18,29 +19,46 @@ def make_layercheck_autoconf(props):
     return util.Interpolate('\n'.join(result) + '\n')
 
 
+def extract_branch_names(_rc, stdout, _stderr):
+    pat = re.compile(r'^(targetbranch|pokybranch)=(.*)')
+    vardict = {}
+    for line in stdout.split('\n'):
+        m = pat.match(line)
+        if m is not None:
+            vardict[m.group(1)] = m.group(2)
+    return vardict
+
+
 class CheckLayer(BuildFactory):
-    def __init__(self, repourl, layerdir, pokyurl, branch='master', pokybranch=None,
-                 codebase='', extra_env=None, machines=None,
+    def __init__(self, repourl, layerdir, pokyurl, codebase='', extra_env=None, machines=None,
                  extra_options=None, submodules=False):
         BuildFactory.__init__(self)
         self.addStep(steps.SetProperty(name='SetDatestamp',
                                        property='datestamp', value=datestamp))
-        if pokybranch is None:
-            pokybranch = branch.split('-')[0]
+
+        branchcmd = 'targetbranch="%(prop:basename)s"; [ -n "$targetbranch" ] || targetbranch="%(prop:branch)s";' + \
+                    'export targetbranch; export pokybranch=$(echo "$targetbranch" | cut -d- -f1); printenv'
+        self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', util.Interpolate(branchcmd)],
+                                                  env=extra_env,
+                                                  extract_fn=extract_branch_names,
+                                                  name='get_branch_names',
+                                                  description="Extracting",
+                                                  descriptionSuffix=["branch", "names"],
+                                                  descriptionDone="Extracted"))
         self.addStep(steps.ShellCommand(command=['git', 'clone',
-                                                 '--branch', pokybranch,
+                                                 '--branch', util.Property('pokybranch'),
                                                  '--depth', '1', pokyurl,
                                                  'poky'],
-                                        name='poky-clone-' + pokybranch,
+                                        name='poky_clone',
                                         description="Cloning",
                                         descriptionSuffix=[pokyurl],
                                         descriptionDone="Cloned"))
         self.addStep(steps.Git(repourl=repourl,
                                workdir=os.path.join("build", "poky", layerdir),
                                submodules=submodules,
-                               branch=branch,
+                               branch=util.Property('targetbranch'),
                                codebase=codebase,
-                               name='git-checkout-{}'.format(branch),
+                               name='checkout_layer',
                                mode='full',
                                method='clobber',
                                doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
@@ -48,7 +66,7 @@ class CheckLayer(BuildFactory):
         if 'github.com' in repourl:
             self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
                                       workdir=os.path.join("build", "poky", layerdir),
-                                      branch=branch, codebase=codebase,
+                                      branch=util.Property('branch'), codebase=codebase,
                                       name='git-checkout-pullrequest-ref',
                                       mode='full',
                                       method='clobber',
