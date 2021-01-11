@@ -44,14 +44,6 @@ def extract_env_vars(rc, stdout, stderr):
     return vardict
 
 
-def worker_extraconfig(props):
-    abcfg = abconfig.get_config_for_builder(props.getProperty('autobuilder'))
-    wcfg = abcfg.worker_cfgs[props.getProperty('workername')]
-    if wcfg:
-        return wcfg.conftext
-    return None
-
-
 @util.renderer
 def datestamp(props):
     return str(time.strftime("%Y%m%d"))

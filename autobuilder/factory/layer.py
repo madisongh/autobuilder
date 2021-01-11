@@ -5,16 +5,16 @@ from buildbot.plugins import util, steps
 from buildbot.process.factory import BuildFactory
 from buildbot.process.results import SKIPPED
 
-from autobuilder.factory.base import worker_extraconfig, datestamp, is_pull_request
+from autobuilder.factory.base import datestamp, is_pull_request
 from autobuilder.factory.base import extract_env_vars, dict_merge, ENV_VARS
 
 
 @util.renderer
 def make_layercheck_autoconf(props):
     # Worker-specific config
-    result = worker_extraconfig(props) or []
+    result = props.getProperty('worker_extraconf', default=[])
     # Distro-specific config
-    result += props.getProperty('extraconf') or []
+    result += props.getProperty('extraconf', default=[])
 
     return util.Interpolate('\n'.join(result) + '\n')
 
