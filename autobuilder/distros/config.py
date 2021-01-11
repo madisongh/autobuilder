@@ -2,7 +2,7 @@ from buildbot.plugins import util
 from buildbot.plugins import schedulers
 from buildbot.config import BuilderConfig
 
-from autobuilder.abconfig import AutobuilderForceScheduler, ABCFG_DICT
+from autobuilder.abconfig import AutobuilderForceScheduler, AutobuilderConfig
 from autobuilder.factory.distro import DistroImage
 from autobuilder.workers.ec2 import nextEC2Worker
 
@@ -173,10 +173,8 @@ class Distro(object):
                                                                       default=repos[self.reponame].uri),
                                        branch=util.FixedParameter(name='branch', default=self.branch))]
 
-    @property
-    def builders(self):
+    def builders(self, abcfg: AutobuilderConfig):
         if self._builders is None:
-            abcfg = ABCFG_DICT[self.abconfig]
             repo = abcfg.repos[self.reponame]
             props = {
                 'artifacts_path': self.artifacts_path,
@@ -214,10 +212,9 @@ class Distro(object):
                                                                     extra_env=self.extra_env))]
             return self._builders
 
-    @property
-    def schedulers(self):
+    def schedulers(self, abcfg: AutobuilderConfig):
         if self._schedulers is None:
-            repos = ABCFG_DICT[self.abconfig].repos
+            repos = abcfg.repos
             s = []
             if self.parallel_builders:
                 builder_names = [self.name + '-' + imgset.name for imgset in self.targets]
