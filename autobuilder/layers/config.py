@@ -5,7 +5,7 @@ from buildbot.plugins import util
 from buildbot.config import BuilderConfig
 from buildbot.plugins import schedulers
 
-from autobuilder.abconfig import AutobuilderForceScheduler, ABCFG_DICT
+from autobuilder.abconfig import AutobuilderForceScheduler, AutobuilderConfig
 from autobuilder.github.handler import layer_pr_filter
 from autobuilder.factory.layer import CheckLayer
 from autobuilder.workers.ec2 import nextEC2Worker
@@ -53,10 +53,8 @@ class Layer(object):
                                                                          choices=self.branches,
                                                                          default=self.branches[0]))]
 
-    @property
-    def builders(self):
+    def builders(self, abcfg: AutobuilderConfig):
         if self._builders is None:
-            abcfg = ABCFG_DICT[self.abconfig]
             repo = abcfg.repos[self.reponame]
             self._builders = [
                 BuilderConfig(name=self.name + '-checklayer',
@@ -76,10 +74,9 @@ class Layer(object):
             ]
         return self._builders
 
-    @property
-    def schedulers(self):
+    def schedulers(self, abcfg: AutobuilderConfig):
         if self._schedulers is None:
-            repos = ABCFG_DICT[self.abconfig].repos
+            repos = abcfg.repos
             self._schedulers = [
                 schedulers.AnyBranchScheduler(
                     name=self.name + '-checklayer',

@@ -1,5 +1,5 @@
 """
-Autobuilder configuration class.
+Autobuilder configuration module
 """
 from twisted.internet import defer
 from buildbot.plugins import changes, schedulers, worker
@@ -7,18 +7,6 @@ from autobuilder.workers.config import AutobuilderEC2Worker
 from autobuilder.workers.ec2 import MyEC2LatentWorker
 
 ABCFG_DICT = {}
-
-
-def get_config_for_builder(name):
-    return ABCFG_DICT[name]
-
-
-def set_config_for_builder(name, val):
-    ABCFG_DICT[name] = val
-
-
-def settings_dict():
-    return ABCFG_DICT
 
 
 class Repo(object):
@@ -39,7 +27,7 @@ class AutobuilderForceScheduler(schedulers.ForceScheduler):
 
 class AutobuilderConfig(object):
     def __init__(self, name, workers, repos, distros, layers):
-        if name in settings_dict():
+        if name in ABCFG_DICT:
             raise RuntimeError('Autobuilder config {} already exists'.format(name))
         self.name = name
         self.workers = workers
@@ -56,7 +44,7 @@ class AutobuilderConfig(object):
         for d in self.distros:
             d.abconfig = self.name
         self.codebasemap = {self.repos[r].uri: r for r in self.repos}
-        set_config_for_builder(name, self)
+        ABCFG_DICT[name] = self
         self._builders = None
         self._schedulers = None
 
@@ -88,9 +76,9 @@ class AutobuilderConfig(object):
         if self._schedulers is None:
             self._schedulers = []
             for layer in self.layers:
-                self._schedulers += layer.schedulers
+                self._schedulers += layer.schedulers(self)
             for d in self.distros:
-                self._schedulers += d.schedulers
+                self._schedulers += d.schedulers(self)
         return self._schedulers
 
     @property
@@ -98,10 +86,10 @@ class AutobuilderConfig(object):
         if self._builders is None:
             self._builders = []
             for layer in self.layers:
-                self._builders += layer.builders
+                self._builders += layer.builders(self)
 
             for d in self.distros:
-                self._builders += d.builders
+                self._builders += d.builders(self)
         return self._builders
 
     @property
