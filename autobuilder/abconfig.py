@@ -42,35 +42,9 @@ class AutobuilderConfig(object):
         if name in settings_dict():
             raise RuntimeError('Autobuilder config {} already exists'.format(name))
         self.name = name
-        self.workers = []
-        self.worker_cfgs = {}
-        for w in workers:
-            if isinstance(w, AutobuilderEC2Worker):
-                self.workers.append(MyEC2LatentWorker(name=w.name,
-                                                      password=w.password,
-                                                      max_builds=w.max_builds,
-                                                      instance_type=w.ec2params.instance_type,
-                                                      ami=w.ec2params.ami,
-                                                      keypair_name=w.ec2params.keypair,
-                                                      instance_profile_name=w.ec2params.instance_profile_name,
-                                                      security_group_ids=w.ec2params.secgroup_ids,
-                                                      region=w.ec2params.region,
-                                                      subnet_id=w.ec2params.subnet,
-                                                      subnet_ids=w.ec2params.subnets,
-                                                      user_data=w.userdata(),
-                                                      elastic_ip=w.ec2params.elastic_ip,
-                                                      tags=w.ec2tags,
-                                                      block_device_map=w.ec2_dev_mapping,
-                                                      spot_instance=w.ec2params.spot_instance,
-                                                      build_wait_timeout=w.ec2params.build_wait_timeout,
-                                                      max_spot_price=w.ec2params.max_spot_price,
-                                                      price_multiplier=w.ec2params.price_multiplier,
-                                                      instance_types=w.ec2params.instance_types))
-            else:
-                self.workers.append(worker.Worker(w.name, w.password, max_builds=w.max_builds))
-            self.worker_cfgs[w.name] = w
-
-        self.worker_names = [w.name for w in workers]
+        self.workers = workers
+        self.worker_cfgs = {w.name: w for w in self.workers}
+        self.worker_names = [w.name for w in self.workers]
 
         self.repos = repos
         self.distros = distros or []

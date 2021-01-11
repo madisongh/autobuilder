@@ -4,24 +4,24 @@ import string
 from random import SystemRandom
 
 import jinja2
+from buildbot.plugins import worker
+from autobuilder.workers.ec2 import MyEC2LatentWorker
 
 RNG = SystemRandom()
 default_svp = {'name': '/dev/xvdf', 'size': 200,
                'type': 'standard', 'iops': None}
 
 
-class AutobuilderWorker(object):
+class AutobuilderWorker(worker.Worker):
     def __init__(self, name, password, conftext=None, max_builds=1):
-        self.name = name
-        self.password = password
         if conftext:
-            self.context = [conftext] if isinstance(conftext, str) else conftext
+            conftext = [conftext] if isinstance(conftext, str) else conftext
         else:
-            self.conftext = []
-        self.max_builds = max_builds
+            conftext = []
         if max_builds > 1:
-            self.conftext += ['BB_NUMBER_THREADS = "${@oe.utils.cpu_count() // %d}"' % max_builds,
-                              'PARALLEL_MAKE = "-j ${@oe.utils.cpu_count() // %d}"' % max_builds]
+            conftext += ['BB_NUMBER_THREADS = "${@oe.utils.cpu_count() // %d}"' % max_builds,
+                         'PARALLEL_MAKE = "-j ${@oe.utils.cpu_count() // %d}"' % max_builds]
+        super().__init__(name, password, max_builds=max_builds, properties={'worker_extraconf': conftext})
 
 
 class EC2Params(object):
@@ -84,7 +84,7 @@ class EC2Params(object):
         self.price_multiplier = price_multiplier
 
 
-class AutobuilderEC2Worker(AutobuilderWorker):
+class AutobuilderEC2Worker(MyEC2LatentWorker):
     master_hostname = socket.gethostname()
     master_ip_address = os.getenv('MASTER_IP_ADDRESS') or socket.gethostbyname(master_hostname)
     master_fqdn = socket.getaddrinfo(master_hostname, 0, flags=socket.AI_CANONNAME)[0][3]
@@ -94,17 +94,22 @@ class AutobuilderEC2Worker(AutobuilderWorker):
                  userdata_dict=None):
         if not password:
             password = ''.join(RNG.choice(string.ascii_letters + string.digits) for _ in range(16))
-        AutobuilderWorker.__init__(self, name, password, conftext, max_builds)
-        self.ec2params = ec2params
-        self.ec2tags = ec2params.tags
-        if self.ec2tags:
-            if 'Name' not in self.ec2tags:
-                tagscopy = self.ec2tags.copy()
-                tagscopy['Name'] = self.name
-                self.ec2tags = tagscopy
+        if conftext:
+            conftext = [conftext] if isinstance(conftext, str) else conftext
         else:
-            self.ec2tags = {'Name': self.name}
-        self.ec2_dev_mapping = None
+            conftext = []
+        if max_builds > 1:
+            conftext += ['BB_NUMBER_THREADS = "${@oe.utils.cpu_count() // %d}"' % max_builds,
+                         'PARALLEL_MAKE = "-j ${@oe.utils.cpu_count() // %d}"' % max_builds]
+        ec2tags = ec2params.tags
+        if ec2tags:
+            if 'Name' not in ec2tags:
+                tagscopy = ec2tags.copy()
+                tagscopy['Name'] = name
+                ec2tags = tagscopy
+        else:
+            ec2tags = {'Name': name}
+        ec2_dev_mapping = None
         svp = ec2params.scratchvolparams
         if svp:
             ebs = {
@@ -119,31 +124,37 @@ class AutobuilderEC2Worker(AutobuilderWorker):
                     ebs['Iops'] = svp['iops']
                 else:
                     ebs['Iops'] = 1000
-            self.ec2_dev_mapping = [
+            ec2_dev_mapping = [
                 {'DeviceName': svp['name'], 'Ebs': ebs}
             ]
-        if userdata_template_file:
-            if userdata_template_dir is None:
-                userdata_template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
-            loader = jinja2.FileSystemLoader(userdata_template_dir)
-            env = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
-            self.userdata_template = env.get_template(userdata_template_file)
-        else:
-            self.userdata_template = None
-        self.userdata_extra_context = userdata_dict
-
-    def userdata(self):
-        ctx = {'workername': self.name,
-               'workersecret': self.password,
+        ctx = {'workername': name,
+               'workersecret': password,
                'master_ip': self.master_ip_address,
                'master_hostname': self.master_hostname,
                'master_fqdn': self.master_fqdn,
                'extra_packages': [],
                'extra_cmds': []}
-        if self.userdata_extra_context:
-            ctx.update(self.userdata_extra_context)
-        if self.userdata_template:
-            return self.userdata_template.render(ctx)
-        return 'WORKERNAME="{}"\nWORKERSECRET="{}"\nMASTER="{}"\n'.format(self.name,
-                                                                          self.password,
-                                                                          self.master_ip_address)
+        if userdata_dict:
+            ctx.update(userdata_dict)
+        if userdata_template_file:
+            if userdata_template_dir is None:
+                userdata_template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
+            loader = jinja2.FileSystemLoader(userdata_template_dir)
+            env = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
+            userdata = env.get_template(userdata_template_file).render(ctx)
+        else:
+            userdata = '\n'.join(['WORKERNAME={}',
+                                  'WORKERSECRET={}',
+                                  'MASTER={}']).format(name, password, self.master_ip_address)
+        self.userdata_extra_context = userdata_dict
+        super().__init__(name=name, password=password, max_builds=max_builds,
+                         instance_type=ec2params.instance_type, ami=ec2params.ami,
+                         keypair_name=ec2params.keypair, instance_profile_name=ec2params.instance_profile_name,
+                         security_group_ids=ec2params.secgroup_ids, region=ec2params.region,
+                         subnet_id=ec2params.subnet, subnet_ids=ec2params.subnets,
+                         user_data=userdata, elastic_ip=ec2params.elastic_ip,
+                         tags=ec2tags, block_device_map=ec2_dev_mapping,
+                         spot_instance=ec2params.spot_instance, build_wait_timeout=ec2params.build_wait_timeout,
+                         max_spot_price=ec2params.max_spot_price, price_multiplier=ec2params.price_multiplier,
+                         instance_types=ec2params.instance_types,
+                         properties={'worker_extraconf': conftext})

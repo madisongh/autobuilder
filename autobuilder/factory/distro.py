@@ -5,7 +5,7 @@ from buildbot.process.factory import BuildFactory
 from buildbot.process.results import SKIPPED
 
 import autobuilder.abconfig as abconfig
-from autobuilder.factory.base import is_pull_request, worker_extraconfig
+from autobuilder.factory.base import is_pull_request
 from autobuilder.factory.base import extract_env_vars, dict_merge, ENV_VARS, datestamp
 
 
@@ -45,9 +45,9 @@ def make_autoconf(props):
     result = ['INHERIT += "rm_work buildstats-summary buildhistory"',
               'BUILDHISTORY_DIR = "${TOPDIR}/buildhistory"']
     # Worker-specific config
-    result += worker_extraconfig(props) or []
+    result += props.getProperty('worker_extraconf', default=[])
     # Distro-specific config
-    result += props.getProperty('extraconf') or []
+    result += props.getProperty('extraconf', default=[])
     # Buildtype-specific config
     result += _get_btinfo(props).extra_config or []
 
