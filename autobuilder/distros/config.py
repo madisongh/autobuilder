@@ -8,26 +8,36 @@ from autobuilder.workers.ec2 import nextEC2Worker
 
 
 class Buildtype(object):
+    force_properties = [
+        util.BooleanParameter(name='current_symlink',
+                              label='Update current symlink',
+                              default=False),
+        util.BooleanParameter(name='pullrequest',
+                              label='This is a pull request',
+                              default=False),
+        util.BooleanParameter(name='keep_going',
+                              label='Add -k option to bitbake for this build',
+                              default=False),
+        util.TextParameter(name='buildtype_extraconf',
+                           label='auto.conf additions for this build type',
+                           default=''),
+    ]
+
     def __init__(self, name, current_symlink=False, defaulttype=False,
-                 pullrequesttype=False, production_release=False,
-                 disable_sstate=False, keep_going=False, extra_config=None):
+                 pullrequesttype=False, keep_going=False, extra_config=None):
         self.name = name
-        self.keep_going = keep_going
-        self.current_symlink = current_symlink
         self.defaulttype = defaulttype
-        self.pullrequesttype = pullrequesttype
-        self.production_release = production_release
-        self.disable_sstate = disable_sstate
-        if extra_config:
-            self.extra_config = [extra_config] if isinstance(extra_config, str) else extra_config
-        else:
-            self.extra_config = []
+        self.properties = {
+            'current_symlink': current_symlink,
+            'pullrequest': pullrequesttype,
+            'keep_going': keep_going,
+            'buildtype_extraconf': '\n'.join(extra_config) if isinstance(extra_config, list) else extra_config
+        }
 
 
 DEFAULT_BLDTYPES = [Buildtype('ci', defaulttype=True),
-                    Buildtype('no-sstate', disable_sstate=True,
+                    Buildtype('no-sstate',
                               extra_config=['SSTATE_MIRRORS_forcevariable = ""']),
-                    Buildtype('release', production_release=True),
                     Buildtype('pr', pullrequesttype=True,
                               extra_config=['INHERIT_remove = "buildhistory"'])]
 
@@ -89,7 +99,6 @@ class WeeklySlot(object):
 
 
 class Distro(object):
-
     WEEKLY_SLOTS = [WeeklySlot(d, h, 0) for d in [5, 6] for h in [4, 8, 12, 16, 20]]
     LAST_USED_WEEKLY = -1
 
@@ -110,8 +119,6 @@ class Distro(object):
                  buildtypes=None,
                  weekly_type=None,
                  push_type='__default__',
-                 triggerable=False,
-                 triggers=None,
                  pullrequest_type=None,
                  extra_config=None,
                  extra_env=None,
@@ -125,8 +132,6 @@ class Distro(object):
         self.setup_script = setup_script
         self.repotimer = repotimer
         self.artifacts = artifacts or []
-        self.triggerable = triggerable
-        self.triggers = triggers
         self.buildtypes = buildtypes
         self.buildtypes = buildtypes or DEFAULT_BLDTYPES
         self.btdict = {bt.name: bt for bt in self.buildtypes}
@@ -142,7 +147,7 @@ class Distro(object):
         else:
             self.push_type = None
         if pullrequest_type:
-            prtypelist = [bt.name for bt in self.buildtypes if bt.pullrequesttype]
+            prtypelist = [bt.name for bt in self.buildtypes if bt.properties['pullrequest']]
             if len(prtypelist) != 1:
                 raise RuntimeError('Must set exactly one PR build type for %s' % self.name)
             self.pullrequest_type = prtypelist[0]
@@ -194,7 +199,6 @@ class Distro(object):
                                                                     branch=self.branch,
                                                                     codebase=self.reponame,
                                                                     imagesets=[imgset],
-                                                                    triggers=self.triggers,
                                                                     extra_env=self.extra_env))
                                   for imgset in self.targets]
             else:
@@ -207,7 +211,6 @@ class Distro(object):
                                                                     branch=self.branch,
                                                                     codebase=self.reponame,
                                                                     imagesets=self.targets,
-                                                                    triggers=self.triggers,
                                                                     extra_env=self.extra_env))]
             return self._builders
 
@@ -220,27 +223,27 @@ class Distro(object):
                 builder_names = [self.name + '-' + imgset.name for imgset in self.targets]
             else:
                 builder_names = [self.name]
-            if self.triggerable:
-                s.append(schedulers.Triggerable(name=self.name + '-triggered',
-                                                builderNames=builder_names))
             if self.push_type is not None:
                 md_filter = util.ChangeFilter(project=self.name,
                                               branch=self.branch, codebase=self.reponame,
                                               category=['push'])
+                props = {'buildtype': self.push_type}
+                props.update(self.btdict[self.push_type].properties)
                 s.append(schedulers.SingleBranchScheduler(name=self.name,
                                                           change_filter=md_filter,
                                                           treeStableTimer=self.repotimer,
-                                                          properties=dict(buildtype=self.push_type),
+                                                          properties=props,
                                                           codebases=self.codebases(repos),
                                                           createAbsoluteSourceStamps=True,
                                                           builderNames=builder_names))
             if self.pullrequest_type is not None:
+                props = {'buildtype': self.pullrequest_type}
+                props.update(self.btdict[self.pullrequest_type].properties)
                 s.append(schedulers.SingleBranchScheduler(name=self.name + '-pr',
                                                           change_filter=util.ChangeFilter(project=self.name,
                                                                                           codebase=self.reponame,
                                                                                           category=['pull']),
-                                                          properties=dict(buildtype=self.pullrequest_type,
-                                                                          pullrequest=True),
+                                                          properties=props,
                                                           codebases=self.codebases(repos),
                                                           createAbsoluteSourceStamps=True,
                                                           builderNames=builder_names))
@@ -248,15 +251,20 @@ class Distro(object):
             forceprops = [util.ChoiceStringParameter(name='buildtype',
                                                      label='Build type',
                                                      choices=[bt.name for bt in self.buildtypes],
+                                                     autopopulate={bt.name: bt.properties
+                                                                   for bt in self.buildtypes},
                                                      default=self.default_buildtype)]
+            forceprops += self.btdict[self.default_buildtype].force_properties
             s.append(AutobuilderForceScheduler(name=self.name + '-force',
                                                codebases=self.codebaseparamlist(repos),
                                                properties=forceprops,
                                                builderNames=builder_names))
             if self.weekly_type is not None:
                 slot = self.get_weekly_slot()
+                props = {'buildtype': self.weekly_type}
+                props.update(self.btdict[self.weekly_type].properties)
                 s.append(schedulers.Nightly(name=self.name + '-' + 'weekly',
-                                            properties=dict(buildtype=self.weekly_type),
+                                            properties=props,
                                             codebases=self.codebases(repos),
                                             createAbsoluteSourceStamps=True,
                                             builderNames=builder_names,

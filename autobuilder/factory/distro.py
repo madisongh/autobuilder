@@ -9,34 +9,11 @@ from autobuilder.factory.base import is_pull_request
 from autobuilder.factory.base import extract_env_vars, dict_merge, ENV_VARS, datestamp
 
 
-def _get_btinfo(props):
-    abcfg = abconfig.get_config_for_builder(props.getProperty('autobuilder'))
-    distro = abcfg.distrodict[props.getProperty('distro')]
-    buildtype = props.getProperty('buildtype')
-    return distro.btdict[buildtype]
-
-
-def is_release_build(props):
-    return _get_btinfo(props).production_release
-
-
-def without_sstate(props):
-    return _get_btinfo(props).disable_sstate
-
-
-def keep_going(props):
-    return _get_btinfo(props).keep_going
-
-
-def update_current_symlink(props):
-    return _get_btinfo(props).current_symlink
-
-
 def build_tag(props):
     if is_pull_request(props):
-        return '%s-PR-%d' % (props.getProperty('datestamp') or time.strftime('%y%m%d'),
+        return '%s-PR-%d' % (props.getProperty('datestamp', default=time.strftime('%y%m%d')),
                              props.getProperty('prnumber'))
-    return '%s-%04d' % (props.getProperty('datestamp') or time.strftime('%Y%m%d'),
+    return '%s-%04d' % (props.getProperty('datestamp', default=time.strftime('%Y%m%d')),
                         props.getProperty('buildnumber'))
 
 
@@ -49,7 +26,7 @@ def make_autoconf(props):
     # Distro-specific config
     result += props.getProperty('extraconf', default=[])
     # Buildtype-specific config
-    result += _get_btinfo(props).extra_config or []
+    result += props.getProperty('buildtype_extraconf', default='').split('\n')
 
     return util.Interpolate('\n'.join(result) + '\n')
 
@@ -65,7 +42,7 @@ def store_artifacts_cmd(props):
     cmd.append('--imageset=%s' % props.getProperty('imageset'))
     cmd.append('--distro=%s' % props.getProperty('DISTRO'))
     cmd.append('--artifacts=%s' % props.getProperty('artifacts'))
-    if update_current_symlink(props):
+    if props.getProperty('current_symlink', default=False):
         cmd.append('--update-current')
     cmd.append(props.getProperty('BUILDDIR'))
     return cmd
@@ -74,13 +51,13 @@ def store_artifacts_cmd(props):
 @util.renderer
 def bitbake_options(props):
     opts = ''
-    if keep_going(props):
+    if props.getProperty('keep_going', default=False):
         opts += ' -k'
 
 
 class DistroImage(BuildFactory):
     def __init__(self, repourl, submodules=False, branch='master',
-                 codebase='', imagesets=None, triggers=None, extra_env=None):
+                 codebase='', imagesets=None, extra_env=None):
         BuildFactory.__init__(self)
         self.addStep(steps.SetProperty(name='SetDatestamp',
                                        property='datestamp', value=datestamp))
@@ -146,12 +123,6 @@ class DistroImage(BuildFactory):
                                               name='make-auto.conf-{}'.format(imageset.name),
                                               description="Creating auto.conf",
                                               descriptionDone="Created auto.conf"))
-
-            if triggers:
-                if isinstance(triggers, str):
-                    triggers = [triggers]
-                self.addStep(steps.Trigger(schedulerNames=[alt + '-triggered' for alt in triggers],
-                                           set_properties={'buildtype': util.Property('buildtype')}))
 
             if imageset.multiconfig:
                 for img in imageset.imagespecs:
