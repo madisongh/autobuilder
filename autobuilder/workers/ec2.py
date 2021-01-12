@@ -364,7 +364,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
                         Name=self.instance_profile_name,
                     )
                 ),
-                ValidUntil=datetime.datetime.now() + datetime.timedelta(seconds=60)
+                ValidUntil=datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=60)
             )
             reservation = reservations['SpotInstanceRequests'][0]
             spotWaiter = self.ec2.meta.client.get_waiter('spot_instance_request_fulfilled')
