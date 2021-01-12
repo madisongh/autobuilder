@@ -27,6 +27,8 @@ class Buildtype(object):
                  pullrequesttype=False, keep_going=False, extra_config=None):
         self.name = name
         self.defaulttype = defaulttype
+        if extra_config is None:
+            extra_config = ''
         self.properties = {
             'current_symlink': current_symlink,
             'pullrequest': pullrequesttype,
@@ -147,10 +149,10 @@ class Distro(object):
         else:
             self.push_type = None
         if pullrequest_type:
-            prtypelist = [bt.name for bt in self.buildtypes if bt.properties['pullrequest']]
-            if len(prtypelist) != 1:
-                raise RuntimeError('Must set exactly one PR build type for %s' % self.name)
-            self.pullrequest_type = prtypelist[0]
+            bt = self.btdict[pullrequest_type]
+            if not bt.properties['pullrequest']:
+                raise RuntimeError('Build type %s must have pullrequest property' % pullrequest_type)
+            self.pullrequest_type = bt.name
         else:
             self.pullrequest_type = None
         if extra_config:
