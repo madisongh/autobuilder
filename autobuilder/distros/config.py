@@ -18,13 +18,17 @@ class Buildtype(object):
         util.BooleanParameter(name='keep_going',
                               label='Add -k option to bitbake for this build',
                               default=False),
+        util.BooleanParameter(name='noartifacts',
+                              label='Disable artifacts upload for this build',
+                              default=False),
         util.TextParameter(name='buildtype_extraconf',
                            label='auto.conf additions for this build type',
                            default=''),
     ]
 
     def __init__(self, name, current_symlink=False, defaulttype=False,
-                 pullrequesttype=False, keep_going=False, extra_config=None):
+                 pullrequesttype=False, keep_going=False, noartifacts=False,
+                 extra_config=None):
         self.name = name
         self.defaulttype = defaulttype
         if extra_config is None:
@@ -33,6 +37,7 @@ class Buildtype(object):
             'current_symlink': current_symlink,
             'pullrequest': pullrequesttype,
             'keep_going': keep_going,
+            'noartifacts': noartifacts,
             'buildtype_extraconf': '\n'.join(extra_config) if isinstance(extra_config, list) else extra_config
         }
 
@@ -40,7 +45,7 @@ class Buildtype(object):
 DEFAULT_BLDTYPES = [Buildtype('ci', defaulttype=True),
                     Buildtype('no-sstate',
                               extra_config=['SSTATE_MIRRORS_forcevariable = ""']),
-                    Buildtype('pr', pullrequesttype=True,
+                    Buildtype('pr', pullrequesttype=True, noartifacts=True,
                               extra_config=['INHERIT_remove = "buildhistory"'])]
 
 
@@ -133,7 +138,10 @@ class Distro(object):
         self.targets = targets
         self.setup_script = setup_script
         self.repotimer = repotimer
-        self.artifacts = artifacts or []
+        if isinstance(artifacts, str):
+            self.artifacts = [a.strip() for a in artifacts.split(',')]
+        else:
+            self.artifacts = artifacts or []
         self.buildtypes = buildtypes
         self.buildtypes = buildtypes or DEFAULT_BLDTYPES
         self.btdict = {bt.name: bt for bt in self.buildtypes}
@@ -184,11 +192,12 @@ class Distro(object):
                 'repourl': repo.uri,
                 'branch': self.branch,
                 'setup_script': self.setup_script,
-                'artifacts': ','.join(self.artifacts),
                 'autobuilder': self.abconfig,
                 'distro': self.name,
                 'extraconf': self.extra_config or []
             }
+            if self.artifacts:
+                props['artifacts'] = self.artifacts
             if self.parallel_builders:
                 self._builders = [BuilderConfig(name=self.name + '-' + imgset.name,
                                                 workernames=abcfg.worker_names,

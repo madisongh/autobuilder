@@ -41,7 +41,8 @@ def store_artifacts_cmd(props):
     cmd.append('--buildername=' + props.getProperty('buildername'))
     cmd.append('--imageset=%s' % props.getProperty('imageset'))
     cmd.append('--distro=%s' % props.getProperty('DISTRO'))
-    cmd.append('--artifacts=%s' % props.getProperty('artifacts'))
+    if not props.getProperty('noartifacts', default=False):
+        cmd.append('--artifacts=%s' % ','.join(props.getProperty('artifacts')))
     if props.getProperty('current_symlink', default=False):
         cmd.append('--update-current')
     cmd.append(props.getProperty('BUILDDIR'))
