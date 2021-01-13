@@ -121,8 +121,9 @@ class DistroImage(BuildFactory):
             self.addStep(steps.StringDownload(s=make_autoconf, workerdest='auto.conf',
                                               workdir=util.Interpolate("%(prop:BUILDDIR)s/conf"),
                                               name='make-auto.conf-{}'.format(imageset.name),
-                                              description="Creating auto.conf",
-                                              descriptionDone="Created auto.conf"))
+                                              description="Creating",
+                                              descriptionSuffix=["auto.conf"],
+                                              descriptionDone="Created"))
 
             if imageset.multiconfig:
                 for img in imageset.imagespecs:
