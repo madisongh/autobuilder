@@ -12,36 +12,40 @@ from autobuilder.abconfig import ABCFG_DICT
 def get_project_for_url(repo_urls, branch):
     for abcfg, cfg in ABCFG_DICT.items():
         for repo_url in repo_urls:
-            try:
+            if repo_url in cfg.codebasemap:
                 reponame = cfg.codebasemap[repo_url]
                 for layer in cfg.layers:
                     if layer.reponame == reponame and branch in layer.branches:
                         log.msg('Found layer {} for repo {} and branch {}'.format(layer.name, reponame, branch))
                         return repo_url, layer.name
+                log.msg("get_project_for_url: {}/{} not found in layers".format(reponame, branch))
                 for distro in cfg.distros:
                     if distro.reponame == reponame and distro.branch == branch:
                         log.msg('Found distro {} for repo {} and branch {}'.format(distro.name, reponame, branch))
                         if distro.push_type:
                             log.msg('Distro {} wants pushes'.format(distro.name))
                             return repo_url, distro.name
-            except KeyError:
-                pass
+                log.msg("get_project_for_url: {}/{} not found in distros".format(reponame, branch))
+            else:
+                log.msg("get_project_for_url: url {} not found".format(repo_url))
     return None, None
 
 
 def layer_pr_filter(change: Change) -> bool:
     target_branch = change.properties.getProperty('basename')
-    log.msg("layer_pr_filter: target_branch is {}".format(target_branch))
     if target_branch is None:
         return False
     for abcfg, cfg in ABCFG_DICT.items():
         try:
             layer = cfg.layerdict[change.project]
-            log.msg("layer_pr_filter: checking layer {}, branches={}".format(layer.name, layer.branches))
-            return target_branch in layer.branches
         except KeyError:
-            pass
-    log.msg("layer_pr_filter: no match")
+            log.msg("layer_pr_filter: no layer for {}".format(change.project))
+            layer = None
+        if layer is not None:
+            if target_branch in layer.branches:
+                log.msg("layer_pr_filter: match for layer {} (branch {})".format(layer.name, target_branch))
+                return True
+    log.msg("layer_pr_filter: no match for project {} branch {}".format(change.project, target_branch))
     return False
 
 
@@ -80,11 +84,14 @@ def something_wants_pullrequests(payload):
     basebranch = base['ref']
     for abcfg, cfg in ABCFG_DICT.items():
         for url in urls:
-            try:
+            if url in cfg.codebasemap:
                 reponame = cfg.codebasemap[url]
                 for layer in cfg.layers:
                     if layer.reponame == reponame and basebranch in layer.branches:
-                        log.msg('Found layer {} for repo {} and branch {}'.format(layer.name, reponame, basebranch))
+                        log.msg('Found layer {} for repo {} and branch {}, returning {}'.format(layer.name,
+                                                                                                reponame,
+                                                                                                basebranch,
+                                                                                                layer.pullrequests))
                         return layer.pullrequests
                 for distro in cfg.distros:
                     if distro.reponame == reponame and distro.branch == basebranch:
@@ -92,8 +99,6 @@ def something_wants_pullrequests(payload):
                         if distro.pullrequest_type:
                             log.msg('Distro {} wants pull requests'.format(distro.name))
                             return True
-            except KeyError:
-                pass
             log.msg('No distro or layer found for url {}, base branch {}'.format(url, basebranch))
     return False
 
@@ -158,7 +163,7 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
             return pr_changes, 'git'
 
         if not something_wants_pullrequests(payload):
-            log.msg("GitHub PR#{}, Ignoring: no matching distro found".format(number))
+            log.msg("GitHub PR #{}, Ignoring: no matching distro found".format(number))
             return [], 'git'
 
         files = yield self._get_pr_files(repo_full_name, number)
@@ -188,7 +193,6 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         }
 
         if callable(self._codebase):
-            log.msg('_codebase is callable')
             change['codebase'] = self._codebase(payload)
         elif self._codebase is not None:
             change['codebase'] = self._codebase
