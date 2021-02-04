@@ -15,6 +15,7 @@ package_upgrade: true
 packages:
     - build-essential
     - chrpath
+    - device-tree-compiler
     - socat
     - cpio
     - gawk
