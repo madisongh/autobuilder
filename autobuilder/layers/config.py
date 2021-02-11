@@ -92,11 +92,12 @@ class Layer(object):
                     builderNames=[self.name + '-checklayer'])
             ]
             if self.pullrequests:
-                self._schedulers.append(schedulers.AnyBranchScheduler(
+                self._schedulers.append(schedulers.SingleBranchScheduler(
                     name=self.name + '-checklayer-pr',
-                    change_filter=util.ChangeFilter(filter_fn=layer_pr_filter),
+                    change_filter=util.ChangeFilter(filter_fn=layer_pr_filter,
+                                                    project=self.name,
+                                                    category=['pull']),
                     properties={'pullrequest': True},
-                    treeStableTimer=self.repotimer,
                     codebases=self.codebases(repos),
                     builderNames=[self.name + '-checklayer']))
         return self._schedulers
