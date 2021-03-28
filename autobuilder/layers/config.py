@@ -19,7 +19,8 @@ class Layer(object):
                  machines=None,
                  extra_config=None,
                  extra_env=None,
-                 extra_options=None):
+                 extra_options=None,
+                 worker_prefix=None):
         self.name = name
         self.reponame = reponame
         self.pokyurl = pokyurl
@@ -32,6 +33,7 @@ class Layer(object):
         self.extra_config = extra_config
         self.extra_env = extra_env
         self.extra_options = extra_options
+        self.worker_prefix = worker_prefix
         self.abconfig = None
         self._builders = None
         self._schedulers = None
@@ -56,9 +58,13 @@ class Layer(object):
     def builders(self, abcfg: AutobuilderConfig):
         if self._builders is None:
             repo = abcfg.repos[self.reponame]
+            if self.worker_prefix:
+                workernames = [wname for wname in abcfg.worker_names if wname.startswith(self.worker_prefix)]
+            else:
+                workernames = abcfg.worker_names
             self._builders = [
                 BuilderConfig(name=self.name + '-checklayer',
-                              workernames=abcfg.worker_names,
+                              workernames=workernames,
                               nextWorker=nextEC2Worker,
                               properties=dict(project=self.name, repourl=repo.uri, autobuilder=self.abconfig,
                                               extraconf=self.extra_config or []),

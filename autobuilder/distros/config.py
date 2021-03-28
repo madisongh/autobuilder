@@ -129,7 +129,8 @@ class Distro(object):
                  pullrequest_type=None,
                  extra_config=None,
                  extra_env=None,
-                 parallel_builders=False):
+                 parallel_builders=False,
+                 worker_prefix=None):
         self.name = name
         self.reponame = reponame
         self.branch = branch
@@ -169,6 +170,7 @@ class Distro(object):
             self.extra_config = []
         self.extra_env = extra_env
         self.parallel_builders = parallel_builders
+        self.worker_prefix = worker_prefix
         self.abconfig = None
         self._builders = None
         self._schedulers = None
@@ -198,9 +200,13 @@ class Distro(object):
             }
             if self.artifacts:
                 props['artifacts'] = self.artifacts
+            if self.worker_prefix:
+                workernames = [wname for wname in abcfg.worker_names if wname.startswith(self.worker_prefix)]
+            else:
+                workernames = abcfg.worker_names
             if self.parallel_builders:
                 self._builders = [BuilderConfig(name=self.name + '-' + imgset.name,
-                                                workernames=abcfg.worker_names,
+                                                workernames=workernames,
                                                 nextWorker=nextEC2Worker,
                                                 properties=props,
                                                 factory=DistroImage(repourl=repo.uri,
@@ -212,7 +218,7 @@ class Distro(object):
                                   for imgset in self.targets]
             else:
                 self._builders = [BuilderConfig(name=self.name,
-                                                workernames=abcfg.worker_names,
+                                                workernames=workernames,
                                                 nextWorker=nextEC2Worker,
                                                 properties=props,
                                                 factory=DistroImage(repourl=repo.uri,
