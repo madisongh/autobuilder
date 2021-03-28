@@ -33,13 +33,15 @@ class CheckLayer(BuildFactory):
     def __init__(self, repourl, layerdir, pokyurl, codebase='', extra_env=None, machines=None,
                  extra_options=None, submodules=False):
         BuildFactory.__init__(self)
+        if extra_env is None:
+            extra_env = {}
         self.addStep(steps.SetProperty(name='SetDatestamp',
                                        property='datestamp', value=datestamp))
 
         branchcmd = 'targetbranch="%(prop:basename)s"; [ -n "$targetbranch" ] || targetbranch="%(prop:branch)s";' + \
                     'export targetbranch; export pokybranch=$(echo "$targetbranch" | cut -d- -f1); printenv'
         self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', util.Interpolate(branchcmd)],
-                                                  env=extra_env,
+                                                  env=extra_env or {},
                                                   extract_fn=extract_branch_names,
                                                   name='get_branch_names',
                                                   description="Extracting",
