@@ -60,6 +60,8 @@ class DistroImage(BuildFactory):
     def __init__(self, repourl, submodules=False, branch='master',
                  codebase='', imagesets=None, extra_env=None):
         BuildFactory.__init__(self)
+        if extra_env is None:
+            extra_env = {}
         self.addStep(steps.SetProperty(name='SetDatestamp',
                                        property='datestamp', value=datestamp))
         self.addStep(steps.Git(repourl=repourl, submodules=submodules,
