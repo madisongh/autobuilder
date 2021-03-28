@@ -1,0 +1,48 @@
+#cloud-config
+bootcmd:
+    - [ mkdir, -p, /scratch ]
+
+package_update: true
+
+packages:
+    - build-essential
+    - chrpath
+    - diffstat
+    - python3-pip
+
+users:
+    - default
+    - name: builder
+      gecos: Auto Builder
+      lock_passwd: true
+      uid: "2000"
+      shell: /bin/bash
+
+write_files:
+    - content: |
+        WORKERNAME="{{ workername }}"
+        WORKERSECRET="{{ workersecret }}"
+        MASTER="{{ master_ip }}"
+      path: /run/buildworker/settings
+      permissions: '0600'
+    - content: |
+        {{ master_ip }} {{ master_hostname }} {{ master_fqdn }}
+      path: /etc/hosts
+      append: true
+
+runcmd:
+    - python3 -m pip install awscli
+    - python3 -m pip install boto3
+    - python3 -m pip install buildbot-worker
+    - python3 -m pip install https://github.com/madisongh/buildworker-scripts/releases/download/v0.1.0-pre3/buildworker_scripts-0.1.0-py3-none-any.whl
+    - python3 -m pip install https://github.com/madisongh/git-credential-aws-secrets/releases/download/v0.0.2/git_credential_aws_secrets-0.0.2-py3-none-any.whl
+    - mkdir /var/lib/bwsetup
+    - [ sh, -c, "curl -L https://github.com/madisongh/buildworker-setup/releases/download/v0.2.2/buildworker-setup-0.2.2.tar.gz | tar -C /var/lib/bwsetup -x -z -f-" ]
+    - [ sh, -c, "cd /var/lib/bwsetup/buildworker-setup-0.2.2; ./configure --prefix=/usr --with-buildbot-worker-prefix=/usr/local --with-systemdsystemunitdir=/lib/systemd/system && make && make install" ]
+    - systemctl enable buildworker-setup.service
+    - systemctl enable buildworker.service
+    - systemctl start buildworker-setup
+    {% for cmd in extra_cmds %}
+    - {{ cmd }}
+    {% endfor %}
+    - systemctl start buildworker
