@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-BUILDBOTVERSION = '2.10.1'
+BUILDBOTVERSION = '3.0.2'
 
 setup(
     name='autobuilder',
