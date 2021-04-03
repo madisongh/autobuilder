@@ -21,6 +21,7 @@ packages:
     - gawk
     - wget
     - git-core
+    - git-lfs
     - diffstat
     - unzip
     - texinfo
