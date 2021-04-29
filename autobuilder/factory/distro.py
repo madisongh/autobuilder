@@ -150,6 +150,16 @@ class DistroImage(BuildFactory):
                 target_images = [img for img in imageset.imagespecs if not img.is_sdk]
                 sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
 
+                tgtenv = dict_merge(ENV_VARS, extra_env)
+                tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
+                cmd = util.Interpolate("bitbake %(kw:bitbake_option)s pseudo-native",
+                                       bitbake_options=bitbake_options)
+                self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
+                                                env=tgtenv, workdir=util.Property('BUILDDIR'),
+                                                name='build_pseudo_native',
+                                                description="Building",
+                                                descriptionSuffix=["pseudo-native"],
+                                                descriptionDone="Built"))
                 if target_images:
                     tgtenv = dict_merge(ENV_VARS, extra_env)
                     tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
@@ -175,6 +185,15 @@ class DistroImage(BuildFactory):
                                                     descriptionSuffix=["SDK", imageset.name, "(multiconfig)"],
                                                     descriptionDone="Built"))
             else:
+                tgtenv = dict_merge(ENV_VARS, extra_env)
+                cmd = util.Interpolate("bitbake %(kw:bitbake_option)s pseudo-native",
+                                       bitbake_options=bitbake_options)
+                self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
+                                                env=tgtenv, workdir=util.Property('BUILDDIR'),
+                                                name='build_pseudo_native',
+                                                description="Building",
+                                                descriptionSuffix=["pseudo-native"],
+                                                descriptionDone="Built"))
                 for i, img in enumerate(imageset.imagespecs, start=1):
                     tgtenv = dict_merge(ENV_VARS, extra_env)
                     bbcmd = "bitbake"
