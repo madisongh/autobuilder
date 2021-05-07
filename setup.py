@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
-BUILDBOTVERSION = '3.1.0'
+BUILDBOTVERSION = '3.1.1'
 
 setup(
     name='autobuilder',
-    version='3.3.0',
+    version='3.3.1',
     packages=find_packages(),
     license='MIT',
     author='Matt Madison',
