@@ -185,15 +185,6 @@ class DistroImage(BuildFactory):
                                                     descriptionSuffix=["SDK", imageset.name, "(multiconfig)"],
                                                     descriptionDone="Built"))
             else:
-                tgtenv = dict_merge(ENV_VARS, extra_env)
-                cmd = util.Interpolate("bitbake %(kw:bitbake_option)s pseudo-native",
-                                       bitbake_options=bitbake_options)
-                self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
-                                                env=tgtenv, workdir=util.Property('BUILDDIR'),
-                                                name='build_pseudo_native',
-                                                description="Building",
-                                                descriptionSuffix=["pseudo-native"],
-                                                descriptionDone="Built"))
                 for i, img in enumerate(imageset.imagespecs, start=1):
                     tgtenv = dict_merge(ENV_VARS, extra_env)
                     bbcmd = "bitbake"
@@ -203,6 +194,15 @@ class DistroImage(BuildFactory):
                         tgtenv["MACHINE"] = img.machine
                     if img.sdkmachine:
                         tgtenv["SDKMACHINE"] = img.sdkmachine
+                    if i == 1:
+                        cmd = util.Interpolate("bitbake %(kw:bitbake_option)s pseudo-native",
+                                               bitbake_options=bitbake_options)
+                        self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
+                                                        env=tgtenv, workdir=util.Property('BUILDDIR'),
+                                                        name='build_pseudo_native',
+                                                        description="Building",
+                                                        descriptionSuffix=["pseudo-native"],
+                                                        descriptionDone="Built"))
                     cmd = util.Interpolate(bbcmd + " %(kw:bitbake_options)s " + ' '.join(img.args),
                                            bitbake_options=bitbake_options)
                     self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
