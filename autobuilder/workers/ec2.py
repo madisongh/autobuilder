@@ -374,7 +374,7 @@ class MyEC2LatentWorker(worker.EC2LatentWorker):
             except botocore.exceptions.WaiterError:
                 pass
             try:
-                request, success = self._wait_for_request(reservation)
+                request, success = self._thd_wait_for_request(reservation)
                 if not success:
                     log.msg('{} {} spot request not successful'.format(
                         self.__class__.__name__, self.workername))
