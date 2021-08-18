@@ -9,6 +9,7 @@ packages:
     - chrpath
     - diffstat
     - python3-pip
+    - zstd
 
 users:
     - default
