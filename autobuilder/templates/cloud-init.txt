@@ -45,6 +45,7 @@ packages:
     - xterm
     - emacs
     - curl
+    - zstd
     {% for pkg in extra_packages %}
     - {{ pkg }}
     {% endfor %}
