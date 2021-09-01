@@ -4,7 +4,7 @@ BUILDBOTVERSION = '3.3.0'
 
 setup(
     name='autobuilder',
-    version='3.4.3',
+    version='3.5.0',
     packages=find_packages(),
     license='MIT',
     author='Matt Madison',
