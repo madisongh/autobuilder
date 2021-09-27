@@ -31,10 +31,12 @@ def extract_branch_names(_rc, stdout, _stderr):
 
 class CheckLayer(BuildFactory):
     def __init__(self, repourl, layerdir, pokyurl, codebase='', extra_env=None, machines=None,
-                 extra_options=None, submodules=False):
+                 extra_options=None, submodules=False, other_layers=None):
         BuildFactory.__init__(self)
         if extra_env is None:
             extra_env = {}
+        if other_layers is None:
+            other_layers = {}
         self.addStep(steps.SetProperty(name='SetDatestamp',
                                        property='datestamp', value=datestamp))
 
@@ -55,6 +57,27 @@ class CheckLayer(BuildFactory):
                                         description="Cloning",
                                         descriptionSuffix=[pokyurl],
                                         descriptionDone="Cloned"))
+        dep_args = []
+        for othername in other_layers:
+            other_layer = other_layers[othername]
+            if 'subdir' in other_layer:
+                subdir = other_layer['subdir']
+            else:
+                subdir = othername
+            self.addStep(steps.ShellCommand(command=['git', 'clone',
+                                                     '--branch', util.Property('pokybranch'),
+                                                     '--depth', '1', other_layer['url'], subdir],
+                                            name='{}_clone'.format(othername),
+                                            workdir=os.path.join("build", "poky"),
+                                            description="Cloning",
+                                            descriptionSuffix=other_layer['url'],
+                                            descriptionDone="Cloned"))
+            if 'sublayers' in other_layer:
+                dep_args += [os.path.join('..', subdir, sub) for sub in other_layer['sublayers']]
+            else:
+                dep_args.append(os.path.join('..', subdir))
+        if dep_args:
+            dep_args = ["--no-auto-dependency", "--dependency"] + dep_args
         self.addStep(steps.Git(repourl=repourl,
                                workdir=os.path.join("build", "poky", layerdir),
                                submodules=submodules,
@@ -115,6 +138,8 @@ class CheckLayer(BuildFactory):
             cmd += " --machines qemux86"
         else:
             cmd += " --machines " + " ".join(machines)
+        if dep_args:
+            cmd += " " + " ".join(dep_args)
         cmd += " -- ../{}".format(layerdir)
         self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
                                         env=dict_merge(ENV_VARS, extra_env),

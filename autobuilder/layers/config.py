@@ -20,7 +20,8 @@ class Layer(object):
                  extra_config=None,
                  extra_env=None,
                  extra_options=None,
-                 worker_prefix=None):
+                 worker_prefix=None,
+                 other_layers=None):
         self.name = name
         self.reponame = reponame
         self.pokyurl = pokyurl
@@ -34,6 +35,7 @@ class Layer(object):
         self.extra_env = extra_env
         self.extra_options = extra_options
         self.worker_prefix = worker_prefix
+        self.other_layers = other_layers
         self.abconfig = None
         self._builders = None
         self._schedulers = None
@@ -76,7 +78,8 @@ class Layer(object):
                                   codebase=self.reponame,
                                   extra_env=self.extra_env,
                                   machines=self.machines,
-                                  extra_options=self.extra_options))
+                                  extra_options=self.extra_options,
+                                  other_layers=self.other_layers))
             ]
         return self._builders
 
