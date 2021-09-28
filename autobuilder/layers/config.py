@@ -36,6 +36,14 @@ class Layer(object):
         self.extra_options = extra_options
         self.worker_prefix = worker_prefix
         self.other_layers = other_layers
+        if self.other_layers:
+            for lname, layer in self.other_layers.items():
+                if 'subdir' not in layer:
+                    layer['subdir'] = lname
+                if 'use_target_branch' not in layer:
+                    layer['use_target_branch'] = False
+                if 'sublayers' not in layer:
+                    layer['sublayers'] = None
         self.abconfig = None
         self._builders = None
         self._schedulers = None

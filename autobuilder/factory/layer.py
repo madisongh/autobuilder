@@ -58,21 +58,18 @@ class CheckLayer(BuildFactory):
                                         descriptionSuffix=[pokyurl],
                                         descriptionDone="Cloned"))
         dep_args = []
-        for othername in other_layers:
-            other_layer = other_layers[othername]
-            if 'subdir' in other_layer:
-                subdir = other_layer['subdir']
-            else:
-                subdir = othername
+        for othername, other_layer in other_layers.items():
+            branchprop = 'targetbranch' if other_layer['use_target_branch'] else 'pokybranch'
+            subdir = other_layer['subdir']
             self.addStep(steps.ShellCommand(command=['git', 'clone',
-                                                     '--branch', util.Property('pokybranch'),
+                                                     '--branch', util.Property(branchprop),
                                                      '--depth', '1', other_layer['url'], subdir],
                                             name='{}_clone'.format(othername),
                                             workdir=os.path.join("build", "poky"),
                                             description="Cloning",
                                             descriptionSuffix=other_layer['url'],
                                             descriptionDone="Cloned"))
-            if 'sublayers' in other_layer:
+            if other_layer['sublayers']:
                 dep_args += [os.path.join('..', subdir, sub) for sub in other_layer['sublayers']]
             else:
                 dep_args.append(os.path.join('..', subdir))
