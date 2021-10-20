@@ -29,7 +29,7 @@ class AutobuilderMessageFormatter(MessageFormatter):
         kwargs['template'] = template
         super().__init__(**kwargs)
         self.summary_template = summary
-        self.wantProperties = summary is not None
+        self.want_properties = summary is not None
 
     @defer.inlineCallbacks
     def render_message_dict(self, master, context):
