@@ -76,6 +76,9 @@ def something_wants_pullrequests(payload):
     if 'pull_request' not in payload:
         log.msg('something_wants_pullrequests called for a non-PR?')
         return False
+    if payload['pull_request']['draft']:
+        log.msg('Draft pull request - ignoring')
+        return False
     base = payload['pull_request']['base']
     urls = [base['repo']['html_url'],
             base['repo']['clone_url'],
