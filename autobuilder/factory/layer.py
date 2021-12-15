@@ -85,15 +85,14 @@ class CheckLayer(BuildFactory):
                                method='clobber',
                                doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
                                hideStepIf=lambda results, step: results == SKIPPED))
-        if 'github.com' in repourl:
-            self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
-                                      workdir=os.path.join("build", "poky", layerdir),
-                                      branch=util.Property('branch'), codebase=codebase,
-                                      name='git-checkout-pullrequest-ref',
-                                      mode='full',
-                                      method='clobber',
-                                      doStepIf=lambda step: is_pull_request(step.build.getProperties()),
-                                      hideStepIf=lambda results, step: results == SKIPPED))
+        self.addStep(steps.Git(repourl=repourl, submodules=submodules,
+                               workdir=os.path.join("build", "poky", layerdir),
+                               branch=util.Property('branch'), codebase=codebase,
+                               name='git-checkout-pullrequest-ref',
+                               mode='full',
+                               method='clobber',
+                               doStepIf=lambda step: is_pull_request(step.build.getProperties()),
+                               hideStepIf=lambda results, step: results == SKIPPED))
         # First, remove duplicates from original PATH (saved in ORIGPATH env var),
         # then strip out the virtualenv bin directory if we're in a virtualenv.
         setup_cmd = 'PATH=`echo -n "$ORIGPATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \
