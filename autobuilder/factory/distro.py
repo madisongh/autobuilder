@@ -186,7 +186,7 @@ class DistroImage(BuildFactory):
                                                     descriptionDone="Built"))
             else:
                 for i, img in enumerate(imageset.imagespecs, start=1):
-                    tgtenv = extra_env
+                    tgtenv = dict_merge(ENV_VARS, extra_env)
                     bbcmd = "bitbake"
                     if img.is_sdk:
                         bbcmd += " -c populate_sdk"
