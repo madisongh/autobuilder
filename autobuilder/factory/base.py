@@ -46,6 +46,13 @@ def extract_env_vars(rc, stdout, stderr):
     return vardict
 
 
+def merge_env_vars(extra_env, renamed_variables):
+    oldornewvars = {}
+    for v in new_var_names if renamed_variables else old_var_names:
+        oldornewvars[v] = util.Property(v)
+    return dict_merge(ENV_VARS, oldornewvars, extra_env)
+
+
 def delete_env_vars(use_new_vars):
     if use_new_vars:
         return 'unset {}; '.format(' '.join(old_var_names))

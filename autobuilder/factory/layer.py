@@ -6,7 +6,7 @@ from buildbot.process.factory import BuildFactory
 from buildbot.process.results import SKIPPED
 
 from autobuilder.factory.base import datestamp, is_pull_request
-from autobuilder.factory.base import extract_env_vars, dict_merge, ENV_VARS
+from autobuilder.factory.base import extract_env_vars, dict_merge, merge_env_vars
 
 
 @util.renderer
@@ -31,7 +31,7 @@ def extract_branch_names(_rc, stdout, _stderr):
 
 class CheckLayer(BuildFactory):
     def __init__(self, repourl, layerdir, pokyurl, codebase='', extra_env=None, machines=None,
-                 extra_options=None, submodules=False, other_layers=None):
+                 extra_options=None, submodules=False, other_layers=None, renamed_variables=False):
         BuildFactory.__init__(self)
         if extra_env is None:
             extra_env = {}
@@ -140,7 +140,7 @@ class CheckLayer(BuildFactory):
             cmd += " " + " ".join(dep_args)
         cmd += " -- ../{}".format(layerdir)
         self.addStep(steps.ShellCommand(command=['bash', '-c', util.Interpolate(cmd)], timeout=None,
-                                        env=dict_merge(ENV_VARS, extra_env),
+                                        env=merge_env_vars(extra_env, renamed_variables),
                                         workdir=util.Property('BUILDDIR'),
                                         name='yocto_check_layer',
                                         description="Checking",

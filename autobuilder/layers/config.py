@@ -91,7 +91,8 @@ class Layer(object):
                                   extra_env=self.extra_env,
                                   machines=self.machines,
                                   extra_options=self.extra_options,
-                                  other_layers=self.other_layers))
+                                  other_layers=self.other_layers,
+                                  renamed_variables=self.renamed_variables))
             ]
         return self._builders
 

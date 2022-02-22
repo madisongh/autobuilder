@@ -218,7 +218,8 @@ class Distro(object):
                                                                     branch=self.branch,
                                                                     codebase=self.reponame,
                                                                     imagesets=[imgset],
-                                                                    extra_env=self.extra_env))
+                                                                    extra_env=self.extra_env,
+                                                                    renamed_variables=self.renamed_variables))
                                   for imgset in self.targets]
             else:
                 self._builders = [BuilderConfig(name=self.name,
@@ -230,7 +231,8 @@ class Distro(object):
                                                                     branch=self.branch,
                                                                     codebase=self.reponame,
                                                                     imagesets=self.targets,
-                                                                    extra_env=self.extra_env))]
+                                                                    extra_env=self.extra_env,
+                                                                    renamed_variables=self.renamed_variables))]
             return self._builders
 
     def schedulers(self, abcfg: AutobuilderConfig):
