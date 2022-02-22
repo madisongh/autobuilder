@@ -5,14 +5,13 @@ from buildbot.plugins import util
 
 import autobuilder.abconfig as abconfig
 
-base_env_vars = {'PATH': util.Property('PATH'),
-                 'ORIGPATH': util.Property('ORIGPATH'),
-                 'BUILDDIR': util.Property('BUILDDIR'),
-                 }
+ENV_VARS = {'PATH': util.Property('PATH'),
+            'ORIGPATH': util.Property('ORIGPATH'),
+            'BUILDDIR': util.Property('BUILDDIR'),
+            }
 
-var_rename_mapping = {
-    'BB_ENV_EXTRAWHITE': 'BB_ENV_PASSTHROUGH_ADDITIONS'
-}
+old_var_names = ['BB_ENV_EXTRAWHITE']
+new_var_names = ['BB_ENV_PASSTHROUGH_ADDITIONS']
 
 
 def dict_merge(*dict_args):
@@ -28,7 +27,7 @@ def is_pull_request(props):
 
 
 def extract_env_vars(rc, stdout, stderr):
-    pat = re.compile('^(' + '|'.join(base_env_vars.keys()) + '|DISTROOVERRIDES)=(.*)')
+    pat = re.compile('^(' + '|'.join(list(ENV_VARS.keys()) + old_var_names + new_var_names) + '|DISTROOVERRIDES)=(.*)')
     vardict = {}
     for line in stdout.split('\n'):
         m = pat.match(line)
@@ -47,23 +46,11 @@ def extract_env_vars(rc, stdout, stderr):
     return vardict
 
 
-def merged_env_vars(props, extra_env):
-    varnames = props.getProperty('varnames', 'old')
-    if varnames == 'old':
-        return dict_merge(extra_env, renamed_env_vars[varnames])
-    additional = {}
-    for oldname, newname in var_rename_mapping.items():
-        if oldname in extra_env:
-            if newname not in extra_env:
-                extra_env[newname] = extra_env[oldname]
-                del extra_env[oldname]
-        oldprop = props.getProperty(oldname, default=None)
-        newprop = props.getProperty(newname, default=None)
-        if oldprop is not None and newprop is not None:
-            additional[newname] = oldprop
-        else:
-            additional[newname] = newprop
-    return dict_merge(base_env_vars, additional, extra_env)
+def delete_env_vars(use_new_vars):
+    if use_new_vars:
+        return 'unset {}; '.format(' '.join(old_var_names))
+    else:
+        return ''
 
 
 @util.renderer

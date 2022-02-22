@@ -4,6 +4,7 @@ from buildbot.config import BuilderConfig
 
 from autobuilder.abconfig import AutobuilderForceScheduler, AutobuilderConfig
 from autobuilder.factory.distro import DistroImage
+from autobuilder.factory.base import delete_env_vars
 from autobuilder.workers.ec2 import nextEC2Worker
 
 
@@ -198,8 +199,8 @@ class Distro(object):
                 'setup_script': self.setup_script,
                 'autobuilder': self.abconfig,
                 'distro': self.name,
-                'extraconf': self.extra_config or []
-                'varnames': 'new' if self.renamed_variables else 'old'
+                'extraconf': self.extra_config or [],
+                'clean_env_cmd': delete_env_vars(self.renamed_variables),
             }
             if self.artifacts:
                 props['artifacts'] = self.artifacts

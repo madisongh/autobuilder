@@ -8,6 +8,7 @@ from buildbot.plugins import schedulers
 from autobuilder.abconfig import AutobuilderForceScheduler, AutobuilderConfig
 from autobuilder.github.handler import layer_pr_filter
 from autobuilder.factory.layer import CheckLayer
+from autobuilder.factory.base import delete_env_vars
 from autobuilder.workers.ec2 import nextEC2Worker
 
 
@@ -80,7 +81,7 @@ class Layer(object):
                               nextWorker=nextEC2Worker,
                               properties=dict(project=self.name, repourl=repo.uri, autobuilder=self.abconfig,
                                               extraconf=self.extra_config or [],
-                                              varnames='new' if self.renamed_variables else 'old'),
+                                              clean_env_cmd=delete_env_vars(self.renamed_variables)),
                               factory=CheckLayer(
                                   repourl=repo.uri,
                                   layerdir=self.layerdir(repo.uri),

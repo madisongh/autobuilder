@@ -6,7 +6,7 @@ from buildbot.process.results import SKIPPED
 
 import autobuilder.abconfig as abconfig
 from autobuilder.factory.base import is_pull_request
-from autobuilder.factory.base import extract_env_vars, merged_env_vars, datestamp
+from autobuilder.factory.base import extract_env_vars, dict_merge, ENV_VARS, datestamp
 
 
 def build_tag(props):
@@ -83,12 +83,13 @@ class DistroImage(BuildFactory):
         setup_cmd = 'PATH=`echo -n "$ORIGPATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \
                     'if [ -n "$VIRTUAL_ENV" ]; then ' + \
                     'PATH=`echo "$PATH" | sed -re "s,(^|:)$VIRTUAL_ENV/bin(:|$),\\2,g;s,^:,,"`; ' + \
-                    'fi; . %(prop:setup_script)s; bitbake -e | grep "^DISTROOVERRIDES="; printenv'
+                    'fi;%(prop:clean_env_cmd)s. %(prop:setup_script)s; bitbake -e | grep "^DISTROOVERRIDES="; printenv'
         # Setup steps
 
         # Clean copy of original PATH, before any setup scripts have been run, to ensure
         # we start fresh before each imageset, when we're running them sequentially.
-        self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', 'export ORIGPATH="$PATH"; printenv'],
+        env_init_cmd = 'export ORIGPATH="$PATH"; %(prop:clean_env_cmd)sprintenv'
+        self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', util.Interpolate(env_init_cmd)],
                                                   env=extra_env,
                                                   extract_fn=extract_env_vars,
                                                   name='save_path',
@@ -149,9 +150,9 @@ class DistroImage(BuildFactory):
                 target_images = [img for img in imageset.imagespecs if not img.is_sdk]
                 sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
 
-                tgtenv = merged_env_vars(step.build.getProperties(), extra_env)
+                tgtenv = dict_merge(ENV_VARS, extra_env)
                 tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
-                cmd = util.Interpolate("bitbake %(kw:bitbake_option)s pseudo-native",
+                cmd = util.Interpolate("%(prop:clean_env_cmd)sbitbake %(kw:bitbake_option)s pseudo-native",
                                        bitbake_options=bitbake_options)
                 self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
                                                 env=tgtenv, workdir=util.Property('BUILDDIR'),
@@ -160,10 +161,10 @@ class DistroImage(BuildFactory):
                                                 descriptionSuffix=["pseudo-native"],
                                                 descriptionDone="Built"))
                 if target_images:
-                    tgtenv = merged_env_vars(step.build.getProperties(), extra_env)
+                    tgtenv = dict_merge(ENV_VARS, extra_env)
                     tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
                     args = ["mc:{}:{}".format(img.mcname, arg) for img in target_images for arg in img.args]
-                    cmd = util.Interpolate("bitbake %(kw:bitbake_option)s " + ' '.join(args),
+                    cmd = util.Interpolate("%(prop:clean_env_cmd)sbitbake %(kw:bitbake_option)s " + ' '.join(args),
                                            bitbake_options=bitbake_options)
                     self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
                                                     env=tgtenv, workdir=util.Property('BUILDDIR'),
@@ -172,10 +173,10 @@ class DistroImage(BuildFactory):
                                                     descriptionSuffix=[imageset.name, "(multiconfig)"],
                                                     descriptionDone="Built"))
                 if sdk_images:
-                    tgtenv = merged_env_vars(step.build.getProperties(), extra_env)
+                    tgtenv = dict_merge(ENV_VARS, extra_env)
                     tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in sdk_images])
                     args = ["mc:{}:{}".format(img.mcname, arg) for img in sdk_images for arg in img.args]
-                    cmd = util.Interpolate("bitbake %(kw:bitbake_option)s -c populate_sdk " + ' '.join(args),
+                    cmd = util.Interpolate("%(prop:clean_env_cmd)sbitbake %(kw:bitbake_option)s -c populate_sdk " + ' '.join(args),
                                            bitbake_options=bitbake_options)
                     self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
                                                     env=tgtenv, workdir=util.Property('BUILDDIR'),
@@ -185,7 +186,7 @@ class DistroImage(BuildFactory):
                                                     descriptionDone="Built"))
             else:
                 for i, img in enumerate(imageset.imagespecs, start=1):
-                    tgtenv = merged_env_vars(step.build.getProperties(), extra_env)
+                    tgtenv = extra_env
                     bbcmd = "bitbake"
                     if img.is_sdk:
                         bbcmd += " -c populate_sdk"
@@ -194,7 +195,7 @@ class DistroImage(BuildFactory):
                     if img.sdkmachine:
                         tgtenv["SDKMACHINE"] = img.sdkmachine
                     if i == 1:
-                        cmd = util.Interpolate("bitbake %(kw:bitbake_option)s pseudo-native",
+                        cmd = util.Interpolate("%(prop:clean_env_cmd)sbitbake %(kw:bitbake_option)s pseudo-native",
                                                bitbake_options=bitbake_options)
                         self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
                                                         env=tgtenv, workdir=util.Property('BUILDDIR'),
@@ -202,7 +203,8 @@ class DistroImage(BuildFactory):
                                                         description="Building",
                                                         descriptionSuffix=["pseudo-native"],
                                                         descriptionDone="Built"))
-                    cmd = util.Interpolate(bbcmd + " %(kw:bitbake_options)s " + ' '.join(img.args),
+                    cmd = util.Interpolate("%(prop:clean_env_cmd)s" + bbcmd + " %(kw:bitbake_options)s " +
+                                           ' '.join(img.args),
                                            bitbake_options=bitbake_options)
                     self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
                                                     env=tgtenv, workdir=util.Property('BUILDDIR'),

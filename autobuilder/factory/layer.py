@@ -6,7 +6,7 @@ from buildbot.process.factory import BuildFactory
 from buildbot.process.results import SKIPPED
 
 from autobuilder.factory.base import datestamp, is_pull_request
-from autobuilder.factory.base import extract_env_vars, merged_env_vars
+from autobuilder.factory.base import extract_env_vars, dict_merge, ENV_VARS
 
 
 @util.renderer
@@ -41,7 +41,8 @@ class CheckLayer(BuildFactory):
                                        property='datestamp', value=datestamp))
 
         branchcmd = 'targetbranch="%(prop:basename)s"; [ -n "$targetbranch" ] || targetbranch="%(prop:branch)s";' + \
-                    'export targetbranch; export pokybranch=$(echo "$targetbranch" | cut -d- -f1); printenv'
+                    'export targetbranch; export pokybranch=$(echo "$targetbranch" | cut -d- -f1); ' + \
+                    '%(prop:clean_env_cmd)sprintenv'
         self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', util.Interpolate(branchcmd)],
                                                   env=extra_env or {},
                                                   extract_fn=extract_branch_names,
@@ -98,12 +99,13 @@ class CheckLayer(BuildFactory):
         setup_cmd = 'PATH=`echo -n "$ORIGPATH" | awk -v RS=: -v ORS=: \'!arr[$0]++\'`;' + \
                     'if [ -n "$VIRTUAL_ENV" ]; then ' + \
                     'PATH=`echo "$PATH" | sed -re "s,(^|:)$VIRTUAL_ENV/bin(:|$),\\2,g;s,^:,,"`; ' + \
-                    'fi; . oe-init-build-env; bitbake -e | grep "^DISTROOVERRIDES="; printenv'
+                    'fi; %(prop:clean_env_cmd)s. oe-init-build-env; bitbake -e | grep "^DISTROOVERRIDES="; printenv'
         # Setup steps
 
         # Clean copy of original PATH, before any setup scripts have been run, to ensure
         # we start fresh before each imageset, when we're running them sequentially.
-        self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', 'export ORIGPATH="$PATH"; printenv'],
+        env_init_cmd = 'export ORIGPATH="$PATH"; %(prop:clean_env_cmd)sprintenv'
+        self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', util.Interpolate(env_init_cmd)],
                                                   env=extra_env,
                                                   extract_fn=extract_env_vars,
                                                   name='save_path',
@@ -127,7 +129,7 @@ class CheckLayer(BuildFactory):
                                           descriptionSuffix=["auto.conf"],
                                           descriptionDone="Created"))
 
-        cmd = "yocto-check-layer"
+        cmd = "%(prop:clean_env_cmd)syocto-check-layer"
         if extra_options:
             cmd += " " + extra_options
         if machines is None:
@@ -137,8 +139,8 @@ class CheckLayer(BuildFactory):
         if dep_args:
             cmd += " " + " ".join(dep_args)
         cmd += " -- ../{}".format(layerdir)
-        self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
-                                        env=merged_env_vars(step.build.getProperties(), extra_env),
+        self.addStep(steps.ShellCommand(command=['bash', '-c', util.Interpolate(cmd)], timeout=None,
+                                        env=dict_merge(ENV_VARS, extra_env),
                                         workdir=util.Property('BUILDDIR'),
                                         name='yocto_check_layer',
                                         description="Checking",
