@@ -130,7 +130,8 @@ class Distro(object):
                  extra_config=None,
                  extra_env=None,
                  parallel_builders=False,
-                 worker_prefix=None):
+                 worker_prefix=None,
+                 renamed_variables=False):
         self.name = name
         self.reponame = reponame
         self.branch = branch
@@ -168,6 +169,7 @@ class Distro(object):
             self.extra_config = [extra_config] if isinstance(extra_config, str) else extra_config
         else:
             self.extra_config = []
+        self.renamed_variables = renamed_variables
         self.extra_env = extra_env
         self.parallel_builders = parallel_builders
         self.worker_prefix = worker_prefix
@@ -197,6 +199,7 @@ class Distro(object):
                 'autobuilder': self.abconfig,
                 'distro': self.name,
                 'extraconf': self.extra_config or []
+                'varnames': 'new' if self.renamed_variables else 'old'
             }
             if self.artifacts:
                 props['artifacts'] = self.artifacts

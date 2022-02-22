@@ -6,7 +6,7 @@ from buildbot.process.factory import BuildFactory
 from buildbot.process.results import SKIPPED
 
 from autobuilder.factory.base import datestamp, is_pull_request
-from autobuilder.factory.base import extract_env_vars, dict_merge, ENV_VARS
+from autobuilder.factory.base import extract_env_vars, merged_env_vars
 
 
 @util.renderer
@@ -138,7 +138,7 @@ class CheckLayer(BuildFactory):
             cmd += " " + " ".join(dep_args)
         cmd += " -- ../{}".format(layerdir)
         self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
-                                        env=dict_merge(ENV_VARS, extra_env),
+                                        env=merged_env_vars(step.build.getProperties(), extra_env),
                                         workdir=util.Property('BUILDDIR'),
                                         name='yocto_check_layer',
                                         description="Checking",
