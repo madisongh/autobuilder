@@ -208,7 +208,7 @@ class DistroImage(BuildFactory):
                                            bitbake_options=bitbake_options)
                     self.addStep(steps.ShellCommand(command=['bash', '-c', cmd], timeout=None,
                                                     env=tgtenv, workdir=util.Property('BUILDDIR'),
-                                                    name='build_%s_%s' % (imageset.name, img.name),
+                                                    name='build_{}_{}'.format(imageset.name, i),
                                                     description="Building",
                                                     descriptionSuffix=[imageset.name, img.name],
                                                     descriptionDone="Built"))
