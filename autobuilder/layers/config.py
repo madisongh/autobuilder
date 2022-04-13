@@ -23,7 +23,8 @@ class Layer(object):
                  extra_options=None,
                  worker_prefix=None,
                  other_layers=None,
-                 renamed_variables=False):
+                 renamed_variables=False,
+                 pokybranch=None):
         self.name = name
         self.reponame = reponame
         self.pokyurl = pokyurl
@@ -39,6 +40,7 @@ class Layer(object):
         self.worker_prefix = worker_prefix
         self.other_layers = other_layers
         self.renamed_variables = renamed_variables
+        self.pokybranch = pokybranch
         if self.other_layers:
             for lname, layer in self.other_layers.items():
                 if 'subdir' not in layer:
@@ -81,6 +83,7 @@ class Layer(object):
                               nextWorker=nextEC2Worker,
                               properties=dict(project=self.name, repourl=repo.uri, autobuilder=self.abconfig,
                                               extraconf=self.extra_config or [],
+                                              pokybranch=self.pokybranch or '',
                                               clean_env_cmd=delete_env_vars(self.renamed_variables)),
                               factory=CheckLayer(
                                   repourl=repo.uri,

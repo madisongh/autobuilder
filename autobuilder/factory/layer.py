@@ -41,8 +41,9 @@ class CheckLayer(BuildFactory):
                                        property='datestamp', value=datestamp))
 
         branchcmd = 'targetbranch="%(prop:basename)s"; [ -n "$targetbranch" ] || targetbranch="%(prop:branch)s";' + \
-                    'export targetbranch; export pokybranch=$(echo "$targetbranch" | cut -d- -f1); ' + \
-                    '%(prop:clean_env_cmd)sprintenv'
+                    'export targetbranch; pokybranch="%(prop:pokybranch)s";' + \
+                    '[ -n "$pokybranch"] || pokybranch=$(echo "$targetbranch" | cut -d- -f1); ' + \
+                    'export pokybranch; %(prop:clean_env_cmd)sprintenv'
         self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', util.Interpolate(branchcmd)],
                                                   env=extra_env or {},
                                                   extract_fn=extract_branch_names,
