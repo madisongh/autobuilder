@@ -42,7 +42,7 @@ class CheckLayer(BuildFactory):
 
         branchcmd = 'targetbranch="%(prop:basename)s"; [ -n "$targetbranch" ] || targetbranch="%(prop:branch)s";' + \
                     'export targetbranch; pokybranch="%(prop:pokybranch)s";' + \
-                    '[ -n "$pokybranch"] || pokybranch=$(echo "$targetbranch" | cut -d- -f1); ' + \
+                    '[ -n "$pokybranch" ] || pokybranch=$(echo "$targetbranch" | cut -d- -f1); ' + \
                     'export pokybranch; %(prop:clean_env_cmd)sprintenv'
         self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', util.Interpolate(branchcmd)],
                                                   env=extra_env or {},
