@@ -3,6 +3,7 @@ bootcmd:
     - [ mkdir, -p, /scratch ]
 
 package_update: true
+package_upgrade: true
 
 packages:
     - build-essential
@@ -34,7 +35,7 @@ write_files:
 runcmd:
     - python3 -m pip install awscli
     - python3 -m pip install boto3
-    - python3 -m pip install buildbot-worker
+    - python3 -m pip install buildbot-worker==3.4.1
     - python3 -m pip install https://github.com/madisongh/buildworker-scripts/releases/download/v0.1.0-pre3/buildworker_scripts-0.1.0-py3-none-any.whl
     - python3 -m pip install https://github.com/madisongh/git-credential-aws-secrets/releases/download/v0.0.2/git_credential_aws_secrets-0.0.2-py3-none-any.whl
     - mkdir /var/lib/bwsetup
