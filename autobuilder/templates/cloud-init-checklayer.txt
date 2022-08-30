@@ -11,6 +11,7 @@ packages:
     - diffstat
     - python3-pip
     - zstd
+    - lz4
 
 users:
     - default
