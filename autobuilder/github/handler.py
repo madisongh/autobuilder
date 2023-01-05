@@ -156,17 +156,21 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
 
         head_msg = yield self._get_commit_msg(repo_full_name, head_sha)
         if self._has_skip(head_msg):
-            log.msg("GitHub PR #{}, Ignoring: "
+            log.msg("GitHub PR #{}, ignoring: "
                     "head commit message contains skip pattern".format(number))
             return [], 'git'
 
-        action = payload.get('action')
-        if action not in ('opened', 'reopened', 'synchronize'):
-            log.msg("GitHub PR #{} {}, ignoring".format(number, action))
-            return pr_changes, 'git'
+        action = payload.get('action') or 'UNKNOWN'
+        if action == 'edited' and ('changes' not in payload or 'base' not in payload['changes']):
+            log.msg("GitHub PR #{} edited PR with no base (branch) change, ignoring".format(number))
+            return [], 'git'
+
+        if action not in ['opened', 'reopened', 'synchronize', 'ready_for_review']:
+            log.msg("GitHub PR #{}, ignoring action {}".format(number, action))
+            return [], 'git'
 
         if not something_wants_pullrequests(payload):
-            log.msg("GitHub PR #{}, Ignoring: no matching distro found".format(number))
+            log.msg("GitHub PR #{}, ignoring: no matching distro found".format(number))
             return [], 'git'
 
         files = yield self._get_pr_files(repo_full_name, number)
