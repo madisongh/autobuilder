@@ -1,5 +1,6 @@
 from abc import ABCMeta
 from twisted.mail.smtp import ESMTPSender
+from buildbot.steps.source.git import Git
 
 
 class myESMTPSender(ESMTPSender, metaclass=ABCMeta):
@@ -16,3 +17,8 @@ class myESMTPSender(ESMTPSender, metaclass=ABCMeta):
                 return context
             except AttributeError:
                 return None
+
+
+class myGit(Git):
+    renderables = ["repourl", "reference", "branch",
+                   "codebase", "mode", "method", "origin", "config"]
