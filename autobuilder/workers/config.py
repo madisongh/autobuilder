@@ -31,7 +31,7 @@ class EC2Params(object):
                  instance_profile_name=None, spot_instance=False,
                  max_spot_price=None, price_multiplier=None,
                  instance_types=None, build_wait_timeout=None,
-                 subnets=None):
+                 subnets=None, missing_timeout=None):
         self.instance_type = instance_type
         self.instance_types = instance_types
         self.ami = ami
@@ -42,6 +42,10 @@ class EC2Params(object):
         self.subnets = subnets
         self.elastic_ip = elastic_ip
         self.tags = tags
+        if missing_timeout:
+            self.missing_timeout = missing_timeout
+        else:
+            self.missing_timeout = 600 if spot_instance else 3600
         if build_wait_timeout:
             self.build_wait_timeout = build_wait_timeout
         else:
@@ -157,4 +161,5 @@ class AutobuilderEC2Worker(MyEC2LatentWorker):
                          spot_instance=ec2params.spot_instance, build_wait_timeout=ec2params.build_wait_timeout,
                          max_spot_price=ec2params.max_spot_price, price_multiplier=ec2params.price_multiplier,
                          instance_types=ec2params.instance_types,
-                         properties={'worker_extraconf': conftext})
+                         properties={'worker_extraconf': conftext},
+                         missing_timeout=ec2params.missing_timeout)
