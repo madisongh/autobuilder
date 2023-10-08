@@ -161,11 +161,11 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
             return [], 'git'
 
         action = payload.get('action') or 'UNKNOWN'
-        if action == 'edited' and ('changes' not in payload or 'base' not in payload['changes']):
-            log.msg("GitHub PR #{} edited PR with no base (branch) change, ignoring".format(number))
-            return [], 'git'
-
-        if action not in ['opened', 'reopened', 'synchronize', 'ready_for_review']:
+        if action == 'edited':
+            if 'changes' not in payload or 'base' not in payload['changes']:
+                log.msg("GitHub PR #{} edited PR with no base (branch) change, ignoring".format(number))
+                return [], 'git'
+        elif action not in ['opened', 'reopened', 'synchronize', 'ready_for_review']:
             log.msg("GitHub PR #{}, ignoring action {}".format(number, action))
             return [], 'git'
 
