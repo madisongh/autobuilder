@@ -73,7 +73,7 @@ runcmd:
     - python3 -m pip install buildbot-worker==3.4.1
     - python3 -m pip install https://github.com/madisongh/buildworker-scripts/releases/download/v0.1.0-pre3/buildworker_scripts-0.1.0-py3-none-any.whl
     - python3 -m pip install https://github.com/madisongh/git-credential-aws-secrets/releases/download/v0.0.2/git_credential_aws_secrets-0.0.2-py3-none-any.whl
-    - python3 -m pip install https://github.com/madisongh/digsigserver/releases/download/v0.11.0/digsigserver-0.11.0-py3-none-any.whl
+    - python3 -m pip install https://github.com/madisongh/digsigserver/releases/download/v0.13.0/digsigserver-0.13.0-py3-none-any.whl
     - update-alternatives --install /usr/bin/python python /usr/bin/python2 1
     - mkdir /var/lib/bwsetup
     - [ sh, -c, "curl -L https://github.com/madisongh/buildworker-setup/releases/download/v0.3.0/buildworker-setup-0.3.0.tar.gz | tar -C /var/lib/bwsetup -x -z -f-" ]
