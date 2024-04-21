@@ -38,7 +38,8 @@ class AutobuilderMessageFormatter(MessageFormatter):
         msgdict = {
             'body': self.render_message_body(context),
             'type': self.template_type,
-            'subject': self.render_message_subject(context)
+            'subject': self.render_message_subject(context),
+            'extra_info': self.render_message_extra_info(context)
         }
         if 'changes' not in context:
             context['changes'] = []
