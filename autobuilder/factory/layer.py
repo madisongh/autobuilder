@@ -77,7 +77,7 @@ class CheckLayer(BuildFactory):
                 dep_args.append(os.path.join('..', subdir))
         if dep_args:
             dep_args = ["--no-auto-dependency", "--dependency"] + dep_args
-        self.addStep(steps.Git(repourl=repourl,
+        self.addStep(steps.GitHub(repourl=repourl,
                                workdir=os.path.join("build", "poky", layerdir),
                                submodules=submodules,
                                branch=util.Property('targetbranch'),
@@ -87,7 +87,7 @@ class CheckLayer(BuildFactory):
                                method='clobber',
                                doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
                                hideStepIf=lambda results, step: results == SKIPPED))
-        self.addStep(steps.Git(repourl=repourl, submodules=submodules,
+        self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
                                workdir=os.path.join("build", "poky", layerdir),
                                branch=util.Property('branch'), codebase=codebase,
                                name='git-checkout-pullrequest-ref',

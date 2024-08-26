@@ -64,14 +64,14 @@ class DistroImage(BuildFactory):
             extra_env = {}
         self.addStep(steps.SetProperty(name='SetDatestamp',
                                        property='datestamp', value=datestamp))
-        self.addStep(steps.Git(repourl=repourl, submodules=submodules,
+        self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
                                branch=branch, codebase=codebase,
                                name='git-checkout-{}'.format(branch),
                                mode=('full' if submodules else 'incremental'),
                                method='clobber',
                                doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
                                hideStepIf=lambda results, step: results == SKIPPED))
-        self.addStep(steps.Git(repourl=repourl, submodules=submodules,
+        self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
                                branch=branch, codebase=codebase,
                                name='git-checkout-pullrequest-ref',
                                mode=('full' if submodules else 'incremental'),
