@@ -178,11 +178,6 @@ class AutobuilderGithubEventHandler(GitHubEventHandler):
         properties = self.extractProperties(payload['pull_request'])
         properties.update({'event': event, 'prnumber': number})
         properties.update({'basename': basename})
-        gitconfig = {
-            'gitconfig': {'remote.origin.fetch': '+refs/pull/{}/head:refs/remotes/origin/pr/{}'.format(number, number),
-                          'advice.detachedHead': 'false'}
-        }
-        properties.update(gitconfig)
         urls = [base['repo']['html_url'],
                 base['repo']['clone_url'],
                 base['repo']['git_url'],
