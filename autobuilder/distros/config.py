@@ -131,8 +131,7 @@ class Distro(object):
                  extra_config=None,
                  extra_env=None,
                  parallel_builders=False,
-                 worker_prefix=None,
-                 renamed_variables=False):
+                 worker_prefix=None):
         self.name = name
         self.reponame = reponame
         self.branch = branch
@@ -170,7 +169,6 @@ class Distro(object):
             self.extra_config = [extra_config] if isinstance(extra_config, str) else extra_config
         else:
             self.extra_config = []
-        self.renamed_variables = renamed_variables
         self.extra_env = extra_env
         self.parallel_builders = parallel_builders
         self.worker_prefix = worker_prefix
@@ -200,7 +198,7 @@ class Distro(object):
                 'autobuilder': self.abconfig,
                 'distro': self.name,
                 'extraconf': self.extra_config or [],
-                'clean_env_cmd': delete_env_vars(self.renamed_variables),
+                'clean_env_cmd': delete_env_vars(True),
             }
             if self.artifacts:
                 props['artifacts'] = self.artifacts
@@ -218,8 +216,7 @@ class Distro(object):
                                                                     branch=self.branch,
                                                                     codebase=self.reponame,
                                                                     imagesets=[imgset],
-                                                                    extra_env=self.extra_env,
-                                                                    renamed_variables=self.renamed_variables))
+                                                                    extra_env=self.extra_env))
                                   for imgset in self.targets]
             else:
                 self._builders = [BuilderConfig(name=self.name,
@@ -231,8 +228,7 @@ class Distro(object):
                                                                     branch=self.branch,
                                                                     codebase=self.reponame,
                                                                     imagesets=self.targets,
-                                                                    extra_env=self.extra_env,
-                                                                    renamed_variables=self.renamed_variables))]
+                                                                    extra_env=self.extra_env))]
         return self._builders
 
     def schedulers(self, abcfg: AutobuilderConfig):
