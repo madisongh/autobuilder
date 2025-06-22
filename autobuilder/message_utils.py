@@ -35,11 +35,19 @@ class AutobuilderMessageFormatter(MessageFormatter):
     def render_message_dict(self, master, context):
         yield self.buildAdditionalContext(master, context)
         context.update(self.context)
+        body, subject, extra_info = yield defer.gatherResults(
+            [
+                defer.maybeDeferred(self.render_message_body, context),
+                defer.maybeDeferred(self.render_message_subject, context),
+                defer.maybeDeferred(self.render_message_extra_info, context),
+            ],
+            consumeErrors=True,
+        )
         msgdict = {
-            'body': self.render_message_body(context),
+            'body': body,
             'type': self.template_type,
-            'subject': self.render_message_subject(context),
-            'extra_info': self.render_message_extra_info(context)
+            'subject': subject,
+            'extra_info': extra_info
         }
         if 'changes' not in context:
             context['changes'] = []
