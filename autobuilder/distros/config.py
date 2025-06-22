@@ -233,7 +233,7 @@ class Distro(object):
                                                                     imagesets=self.targets,
                                                                     extra_env=self.extra_env,
                                                                     renamed_variables=self.renamed_variables))]
-            return self._builders
+        return self._builders
 
     def schedulers(self, abcfg: AutobuilderConfig):
         if self._schedulers is None:
