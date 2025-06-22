@@ -23,7 +23,6 @@ class Layer(object):
                  extra_options=None,
                  worker_prefix=None,
                  other_layers=None,
-                 renamed_variables=False,
                  pokybranch=None):
         self.name = name
         self.reponame = reponame
@@ -39,7 +38,6 @@ class Layer(object):
         self.extra_options = extra_options
         self.worker_prefix = worker_prefix
         self.other_layers = other_layers
-        self.renamed_variables = renamed_variables
         self.pokybranch = pokybranch
         if self.other_layers:
             for lname, layer in self.other_layers.items():
@@ -84,7 +82,7 @@ class Layer(object):
                               properties=dict(project=self.name, repourl=repo.uri, autobuilder=self.abconfig,
                                               extraconf=self.extra_config or [],
                                               pokybranch=self.pokybranch or '',
-                                              clean_env_cmd=delete_env_vars(self.renamed_variables)),
+                                              clean_env_cmd=delete_env_vars(True)),
                               factory=CheckLayer(
                                   repourl=repo.uri,
                                   layerdir=self.layerdir(repo.uri),
@@ -94,8 +92,7 @@ class Layer(object):
                                   extra_env=self.extra_env,
                                   machines=self.machines,
                                   extra_options=self.extra_options,
-                                  other_layers=self.other_layers,
-                                  renamed_variables=self.renamed_variables))
+                                  other_layers=self.other_layers))
             ]
         return self._builders
 

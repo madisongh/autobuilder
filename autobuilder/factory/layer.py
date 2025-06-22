@@ -31,7 +31,7 @@ def extract_branch_names(_rc, stdout, _stderr):
 
 class CheckLayer(BuildFactory):
     def __init__(self, repourl, layerdir, pokyurl, codebase='', extra_env=None, machines=None,
-                 extra_options=None, submodules=False, other_layers=None, renamed_variables=False):
+                 extra_options=None, submodules=False, other_layers=None):
         BuildFactory.__init__(self)
         if extra_env is None:
             extra_env = {}
@@ -141,7 +141,7 @@ class CheckLayer(BuildFactory):
             cmd += " " + " ".join(dep_args)
         cmd += " -- ../{}".format(layerdir)
         self.addStep(steps.ShellCommand(command=['bash', '-c', util.Interpolate(cmd)], timeout=None,
-                                        env=merge_env_vars(extra_env, renamed_variables),
+                                        env=merge_env_vars(extra_env, True),
                                         workdir=util.Property('BUILDDIR'),
                                         name='yocto_check_layer',
                                         description="Checking",
