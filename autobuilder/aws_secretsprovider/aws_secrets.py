@@ -8,6 +8,10 @@ from buildbot.secrets.providers.base import SecretProviderBase
 class AWSSecretsManagerProvider(SecretProviderBase):
     name = "SecretInAWS"
 
+    def __init__(self, *args, **kwargs):
+        self.secrets = None
+        super().__init__(*args, **kwargs)
+
     def checkConfig(self, region=None):
         if not isinstance(region, str):
             config.error("region parameter is {} instead of string".format(type(region)))
