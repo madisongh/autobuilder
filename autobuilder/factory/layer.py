@@ -143,6 +143,7 @@ class CheckLayer(BuildFactory):
         self.addStep(steps.ShellCommand(command=['bash', '-c', util.Interpolate(cmd)], timeout=None,
                                         env=merge_env_vars(extra_env, True),
                                         workdir=util.Property('BUILDDIR'),
+                                        maxTime=30*60,
                                         name='yocto_check_layer',
                                         description="Checking",
                                         descriptionSuffix="layer",
