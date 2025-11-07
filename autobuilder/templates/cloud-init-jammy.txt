@@ -76,8 +76,8 @@ runcmd:
     - python3 -m pip install https://github.com/madisongh/digsigserver/releases/download/v0.14.0/digsigserver-0.14.0-py3-none-any.whl
     - update-alternatives --install /usr/bin/python python /usr/bin/python2 1
     - mkdir /var/lib/bwsetup
-    - [ sh, -c, "curl -L https://github.com/madisongh/buildworker-setup/releases/download/v0.3.0/buildworker-setup-0.3.0.tar.gz | tar -C /var/lib/bwsetup -x -z -f-" ]
-    - [ sh, -c, "cd /var/lib/bwsetup/buildworker-setup-0.3.0; ./configure --prefix=/usr --with-buildbot-worker-prefix=/usr/local --with-digsig-prefix=/usr/local --with-keyfile-uri=s3://systems.madison.codesign-material && make && make install" ]
+    - [ sh, -c, "curl -L https://github.com/madisongh/buildworker-setup/releases/download/v0.4.0/buildworker-setup-0.4.0.tar.gz | tar -C /var/lib/bwsetup -x -z -f-" ]
+    - [ sh, -c, "cd /var/lib/bwsetup/buildworker-setup-0.4.0; ./configure --prefix=/usr --with-buildbot-worker-prefix=/usr/local --with-digsig-prefix=/usr/local --with-keyfile-uri=s3://systems.madison.codesign-material && make && make install" ]
     - systemctl enable buildworker-setup.service
     - systemctl enable buildworker.service
     - systemctl enable digsigserver.service
