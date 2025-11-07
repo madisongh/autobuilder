@@ -13,7 +13,8 @@ from autobuilder.workers.ec2 import nextEC2Worker
 
 
 class Layer(object):
-    def __init__(self, name, reponame, oe_core_url, branches, email,
+
+    def __init__(self, name, reponame, branches, email,
                  repotimer=300,
                  pullrequests=False,
                  layerdir=None,
@@ -23,9 +24,13 @@ class Layer(object):
                  extra_options=None,
                  worker_prefix=None,
                  other_layers=None,
+                 bitbake_url="https://github.com/openembedded/bitbake.git",
+                 bitbake_branch=None,
+                 oe_core_url="https://github.com/openembedded/openembedded-core.git",
                  oe_core_branch=None):
         self.name = name
         self.reponame = reponame
+        self.bitbake_url = bitbake_url
         self.oe_core_url = oe_core_url
         self.branches = branches
         self.email = email
@@ -38,6 +43,7 @@ class Layer(object):
         self.extra_options = extra_options
         self.worker_prefix = worker_prefix
         self.other_layers = other_layers
+        self.bitbake_branch = bitbake_branch
         self.oe_core_branch = oe_core_branch
         if self.other_layers:
             for lname, layer in self.other_layers.items():
@@ -82,12 +88,14 @@ class Layer(object):
                               properties=dict(project=self.name, repourl=repo.uri, autobuilder=self.abconfig,
                                               extraconf=self.extra_config or [],
                                               oe_core_branch=self.oe_core_branch or '',
+                                              bitbake_branch=self.bitbake_branch or '',
                                               clean_env_cmd=delete_env_vars()),
                               factory=CheckLayer(
                                   repourl=repo.uri,
                                   layerdir=self.layerdir(repo.uri),
                                   submodules=repo.submodules,
                                   oe_core_url=self.oe_core_url,
+                                  bitbake_url=self.bitbake_url,
                                   codebase=self.reponame,
                                   extra_env=self.extra_env,
                                   machines=self.machines,

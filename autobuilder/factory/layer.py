@@ -8,6 +8,26 @@ from buildbot.process.results import SKIPPED
 from autobuilder.factory.base import datestamp, is_pull_request
 from autobuilder.factory.base import extract_env_vars, dict_merge, merge_env_vars
 
+# Transcribed from https://wiki.yoctoproject.org/wiki/Releases
+OECORE_BITBAKE_BRANCH_MAPPING = {
+    'dunfell': '1.46',
+    'kirkstone': '2.0',
+    'scarthgap': '2.8',
+    'walnascar': '2.12',
+    'whinlatter': '2.14',
+    'wrynose': '2.16',
+    'master': 'master',
+}
+
+@util.renderer
+def bitbake_branch_computed(props):
+    result = props.getProperty('bitbake_branch')
+    if not result:
+        try:
+            result = OECORE_BITBAKE_BRANCH_MAPPING[props.getProperty('oe_core_branch')]
+        except KeyError:
+            result = 'UNKNOWN'
+    return result
 
 @util.renderer
 def make_layercheck_autoconf(props):
@@ -30,7 +50,7 @@ def extract_branch_names(_rc, stdout, _stderr):
 
 
 class CheckLayer(BuildFactory):
-    def __init__(self, repourl, layerdir, oe_core_url, codebase='', extra_env=None, machines=None,
+    def __init__(self, repourl, layerdir, oe_core_url, bitbake_url, codebase='', extra_env=None, machines=None,
                  extra_options=None, submodules=False, other_layers=None):
         BuildFactory.__init__(self)
         if extra_env is None:
@@ -51,6 +71,10 @@ class CheckLayer(BuildFactory):
                                                   description="Extracting",
                                                   descriptionSuffix=["branch", "names"],
                                                   descriptionDone="Extracted"))
+        self.addStep(steps.SetProperty(property="bitbake_branch",
+                                       value=bitbake_branch_computed,
+                                       description="Setting bitbake branch name",
+                                       descriptionDone="Set bitbake branch name"))
         self.addStep(steps.ShellCommand(command=['git', 'clone',
                                                  '--branch', util.Property('oe_core_branch'),
                                                  '--depth', '1', oe_core_url,
@@ -58,6 +82,15 @@ class CheckLayer(BuildFactory):
                                         name='oe_core_clone',
                                         description="Cloning",
                                         descriptionSuffix=[oe_core_url],
+                                        descriptionDone="Cloned"))
+        self.addStep(steps.ShellCommand(command=['git', 'clone',
+                                                 '--branch', util.Property('bitbake_branch'),
+                                                 '--depth', '1', bitbake_url,
+                                                 'bitbake'],
+                                        workdir=os.path.join("build", "oe_core"),
+                                        name='bitbake_clone',
+                                        description="Cloning",
+                                        descriptionSuffix=[bitbake_url],
                                         descriptionDone="Cloned"))
         dep_args = []
         for othername, other_layer in other_layers.items():
