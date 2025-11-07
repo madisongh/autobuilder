@@ -13,7 +13,7 @@ from autobuilder.workers.ec2 import nextEC2Worker
 
 
 class Layer(object):
-    def __init__(self, name, reponame, pokyurl, branches, email,
+    def __init__(self, name, reponame, oe_core_url, branches, email,
                  repotimer=300,
                  pullrequests=False,
                  layerdir=None,
@@ -23,10 +23,10 @@ class Layer(object):
                  extra_options=None,
                  worker_prefix=None,
                  other_layers=None,
-                 pokybranch=None):
+                 oe_core_branch=None):
         self.name = name
         self.reponame = reponame
-        self.pokyurl = pokyurl
+        self.oe_core_url = oe_core_url
         self.branches = branches
         self.email = email
         self._layerdir = layerdir
@@ -38,7 +38,7 @@ class Layer(object):
         self.extra_options = extra_options
         self.worker_prefix = worker_prefix
         self.other_layers = other_layers
-        self.pokybranch = pokybranch
+        self.oe_core_branch = oe_core_branch
         if self.other_layers:
             for lname, layer in self.other_layers.items():
                 if 'subdir' not in layer:
@@ -81,13 +81,13 @@ class Layer(object):
                               nextWorker=nextEC2Worker,
                               properties=dict(project=self.name, repourl=repo.uri, autobuilder=self.abconfig,
                                               extraconf=self.extra_config or [],
-                                              pokybranch=self.pokybranch or '',
+                                              oe_core_branch=self.oe_core_branch or '',
                                               clean_env_cmd=delete_env_vars(True)),
                               factory=CheckLayer(
                                   repourl=repo.uri,
                                   layerdir=self.layerdir(repo.uri),
                                   submodules=repo.submodules,
-                                  pokyurl=self.pokyurl,
+                                  oe_core_url=self.oe_core_url,
                                   codebase=self.reponame,
                                   extra_env=self.extra_env,
                                   machines=self.machines,

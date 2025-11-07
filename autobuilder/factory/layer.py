@@ -20,7 +20,7 @@ def make_layercheck_autoconf(props):
 
 
 def extract_branch_names(_rc, stdout, _stderr):
-    pat = re.compile(r'^(targetbranch|pokybranch)=(.*)')
+    pat = re.compile(r'^(targetbranch|oe_core_branch)=(.*)')
     vardict = {}
     for line in stdout.split('\n'):
         m = pat.match(line)
@@ -30,7 +30,7 @@ def extract_branch_names(_rc, stdout, _stderr):
 
 
 class CheckLayer(BuildFactory):
-    def __init__(self, repourl, layerdir, pokyurl, codebase='', extra_env=None, machines=None,
+    def __init__(self, repourl, layerdir, oe_core_url, codebase='', extra_env=None, machines=None,
                  extra_options=None, submodules=False, other_layers=None):
         BuildFactory.__init__(self)
         if extra_env is None:
@@ -41,9 +41,9 @@ class CheckLayer(BuildFactory):
                                        property='datestamp', value=datestamp))
 
         branchcmd = 'targetbranch="%(prop:basename)s"; [ -n "$targetbranch" ] || targetbranch="%(prop:branch)s";' + \
-                    'export targetbranch; pokybranch="%(prop:pokybranch)s";' + \
-                    '[ -n "$pokybranch" ] || pokybranch=$(echo "$targetbranch" | cut -d- -f1); ' + \
-                    'export pokybranch; %(prop:clean_env_cmd)sprintenv'
+                    'export targetbranch; oe_core_branch="%(prop:oe_core_branch)s";' + \
+                    '[ -n "$oe_core_branch" ] || oe_core_branch=$(echo "$targetbranch" | cut -d- -f1); ' + \
+                    'export oe_core_branch; %(prop:clean_env_cmd)sprintenv'
         self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', util.Interpolate(branchcmd)],
                                                   env=extra_env or {},
                                                   extract_fn=extract_branch_names,
@@ -52,22 +52,22 @@ class CheckLayer(BuildFactory):
                                                   descriptionSuffix=["branch", "names"],
                                                   descriptionDone="Extracted"))
         self.addStep(steps.ShellCommand(command=['git', 'clone',
-                                                 '--branch', util.Property('pokybranch'),
-                                                 '--depth', '1', pokyurl,
-                                                 'poky'],
-                                        name='poky_clone',
+                                                 '--branch', util.Property('oe_core_branch'),
+                                                 '--depth', '1', oe_core_url,
+                                                 'oe_core'],
+                                        name='oe_core_clone',
                                         description="Cloning",
-                                        descriptionSuffix=[pokyurl],
+                                        descriptionSuffix=[oe_core_url],
                                         descriptionDone="Cloned"))
         dep_args = []
         for othername, other_layer in other_layers.items():
-            branchprop = 'targetbranch' if other_layer['use_target_branch'] else 'pokybranch'
+            branchprop = 'targetbranch' if other_layer['use_target_branch'] else 'oe_core_branch'
             subdir = other_layer['subdir']
             self.addStep(steps.ShellCommand(command=['git', 'clone',
                                                      '--branch', util.Property(branchprop),
                                                      '--depth', '1', other_layer['url'], subdir],
                                             name='{}_clone'.format(othername),
-                                            workdir=os.path.join("build", "poky"),
+                                            workdir=os.path.join("build", "oe_core"),
                                             description="Cloning",
                                             descriptionSuffix=other_layer['url'],
                                             descriptionDone="Cloned"))
@@ -78,7 +78,7 @@ class CheckLayer(BuildFactory):
         if dep_args:
             dep_args = ["--no-auto-dependency", "--dependency"] + dep_args
         self.addStep(steps.GitHub(repourl=repourl,
-                               workdir=os.path.join("build", "poky", layerdir),
+                               workdir=os.path.join("build", "oe_core", layerdir),
                                submodules=submodules,
                                branch=util.Property('targetbranch'),
                                codebase=codebase,
@@ -88,7 +88,7 @@ class CheckLayer(BuildFactory):
                                doStepIf=lambda step: not is_pull_request(step.build.getProperties()),
                                hideStepIf=lambda results, step: results == SKIPPED))
         self.addStep(steps.GitHub(repourl=repourl, submodules=submodules,
-                               workdir=os.path.join("build", "poky", layerdir),
+                               workdir=os.path.join("build", "oe_core", layerdir),
                                branch=util.Property('branch'), codebase=codebase,
                                name='git-checkout-pullrequest-ref',
                                mode='full',
@@ -115,7 +115,7 @@ class CheckLayer(BuildFactory):
                                                   descriptionDone="Saved"))
 
         self.addStep(steps.SetPropertyFromCommand(command=['bash', '-c', util.Interpolate(setup_cmd)],
-                                                  workdir=os.path.join("build", "poky"),
+                                                  workdir=os.path.join("build", "oe_core"),
                                                   env=dict_merge(extra_env,
                                                                  {"ORIGPATH": util.Property("ORIGPATH")}),
                                                   extract_fn=extract_env_vars,
