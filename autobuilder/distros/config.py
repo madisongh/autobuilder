@@ -198,7 +198,7 @@ class Distro(object):
                 'autobuilder': self.abconfig,
                 'distro': self.name,
                 'extraconf': self.extra_config or [],
-                'clean_env_cmd': delete_env_vars(True),
+                'clean_env_cmd': delete_env_vars(),
             }
             if self.artifacts:
                 props['artifacts'] = self.artifacts

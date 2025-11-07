@@ -82,7 +82,7 @@ class Layer(object):
                               properties=dict(project=self.name, repourl=repo.uri, autobuilder=self.abconfig,
                                               extraconf=self.extra_config or [],
                                               oe_core_branch=self.oe_core_branch or '',
-                                              clean_env_cmd=delete_env_vars(True)),
+                                              clean_env_cmd=delete_env_vars()),
                               factory=CheckLayer(
                                   repourl=repo.uri,
                                   layerdir=self.layerdir(repo.uri),
