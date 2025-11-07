@@ -150,7 +150,7 @@ class DistroImage(BuildFactory):
                 target_images = [img for img in imageset.imagespecs if not img.is_sdk]
                 sdk_images = [img for img in imageset.imagespecs if img.is_sdk]
 
-                tgtenv = merge_env_vars(extra_env, True)
+                tgtenv = merge_env_vars(extra_env)
                 tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
                 cmd = util.Interpolate("%(prop:clean_env_cmd)sbitbake %(kw:bitbake_option)s pseudo-native",
                                        bitbake_options=bitbake_options)
@@ -161,7 +161,7 @@ class DistroImage(BuildFactory):
                                                 descriptionSuffix=["pseudo-native"],
                                                 descriptionDone="Built"))
                 if target_images:
-                    tgtenv = merge_env_vars(extra_env, True)
+                    tgtenv = merge_env_vars(extra_env)
                     tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in target_images])
                     args = ["mc:{}:{}".format(img.mcname, arg) for img in target_images for arg in img.args]
                     cmd = util.Interpolate("%(prop:clean_env_cmd)sbitbake %(kw:bitbake_option)s " + ' '.join(args),
@@ -173,7 +173,7 @@ class DistroImage(BuildFactory):
                                                     descriptionSuffix=[imageset.name, "(multiconfig)"],
                                                     descriptionDone="Built"))
                 if sdk_images:
-                    tgtenv = merge_env_vars(extra_env, True)
+                    tgtenv = merge_env_vars(extra_env)
                     tgtenv["BBMULTICONFIG"] = ' '.join([img.mcname for img in sdk_images])
                     args = ["mc:{}:{}".format(img.mcname, arg) for img in sdk_images for arg in img.args]
                     cmd = util.Interpolate("%(prop:clean_env_cmd)sbitbake %(kw:bitbake_option)s -c populate_sdk " + ' '.join(args),
@@ -186,7 +186,7 @@ class DistroImage(BuildFactory):
                                                     descriptionDone="Built"))
             else:
                 for i, img in enumerate(imageset.imagespecs, start=1):
-                    tgtenv = merge_env_vars(extra_env, True)
+                    tgtenv = merge_env_vars(extra_env)
                     bbcmd = "bitbake"
                     if img.is_sdk:
                         bbcmd += " -c populate_sdk"
