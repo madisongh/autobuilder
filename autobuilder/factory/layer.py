@@ -14,8 +14,8 @@ OECORE_BITBAKE_BRANCH_MAPPING = {
     'kirkstone': '2.0',
     'scarthgap': '2.8',
     'walnascar': '2.12',
-    'whinlatter': '2.14',
-    'wrynose': '2.16',
+    'whinlatter': '2.16',
+    'wrynose': '2.18',
     'master': 'master',
 }
 
