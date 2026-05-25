@@ -52,7 +52,7 @@ users:
     - name: builder
       gecos: Auto Builder
       lock_passwd: true
-      uid: "2000"
+      uid: 2000
       shell: /bin/bash
 
 write_files:

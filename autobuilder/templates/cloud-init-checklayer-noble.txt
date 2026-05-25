@@ -1,0 +1,53 @@
+#cloud-config
+bootcmd:
+    - [ mkdir, -p, /scratch ]
+
+packages:
+    - build-essential
+    - chrpath
+    - diffstat
+    - pipx
+    - pkgconf
+    - python3
+    - libacl1
+
+users:
+    - default
+    - name: builder
+      gecos: Auto Builder
+      lock_passwd: true
+      uid: 2000
+      shell: /bin/bash
+
+write_files:
+    - content: |
+        WORKERNAME="{{ workername }}"
+        WORKERSECRET="{{ workersecret }}"
+        MASTER="{{ master_ip }}"
+      path: /run/buildworker/settings
+      permissions: '0644'
+    - content: |
+        kernel.apparmor_restrict_unprivileged_userns = 0
+      path: /etc/sysctl.d/90-userns-config-for-bitbake.conf
+      permissions: '0644'
+    - content: |
+        {{ master_ip }} {{ master_hostname }} {{ master_fqdn }}
+      path: /etc/hosts
+      append: true
+    - content: |
+        mkdir -p $HOME/.local/bin
+      path: 90-make-local-bin.sh
+      permissions: '0644'
+
+runcmd:
+    - sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+    - mkdir /var/lib/bwsetup
+    - [ sh, -c, "curl -L https://github.com/madisongh/buildworker-setup/releases/download/v0.5.3/buildworker-setup-0.5.3.tar.gz | tar -C /var/lib/bwsetup -x -z -f-" ]
+    - [ sh, -c, "cd /var/lib/bwsetup/buildworker-setup-0.5.3; ./configure --prefix=/usr --disable-digsigserver && make && make install" ]
+    - systemctl enable buildworker-setup.service
+    - systemctl enable buildworker.service
+    - systemctl start buildworker-setup
+    {% for cmd in extra_cmds %}
+    - {{ cmd }}
+    {% endfor %}
+    - systemctl start buildworker
