@@ -11,6 +11,9 @@ packages:
     - pkgconf
     - python3
     - libacl1
+    {% for pkg in extra_packages %}
+    - {{ pkg }}
+    {% endfor %}
 
 users:
     - default

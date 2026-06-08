@@ -12,6 +12,9 @@ packages:
     - python3-pip
     - zstd
     - lz4
+    {% for pkg in extra_packages %}
+    - {{ pkg }}
+    {% endfor %}
 
 users:
     - default
