@@ -6,6 +6,7 @@ packages:
     - build-essential
     - chrpath
     - diffstat
+    - lz4
     - pipx
     - pkgconf
     - python3
