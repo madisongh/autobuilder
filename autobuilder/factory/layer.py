@@ -16,6 +16,7 @@ OECORE_BITBAKE_BRANCH_MAPPING = {
     'walnascar': '2.12',
     'whinlatter': '2.16',
     'wrynose': '2.18',
+    'blacksail': '2.20',
     'master': 'master',
 }
 
