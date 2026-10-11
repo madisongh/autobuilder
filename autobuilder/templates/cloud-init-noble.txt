@@ -80,7 +80,7 @@ runcmd:
     - snap install --classic aws-cli
     - mkdir /var/lib/bwsetup
     - [ sh, -c, "curl -L https://github.com/madisongh/buildworker-setup/releases/download/v0.5.3/buildworker-setup-0.5.3.tar.gz | tar -C /var/lib/bwsetup -x -z -f-" ]
-    - [ sh, -c, "cd /var/lib/bwsetup/buildworker-setup-0.5.3; ./configure --prefix=/usr --with-keyfile-uri=s3://systems.madison.codesign-material && make && make install" ]
+    - [ sh, -c, "cd /var/lib/bwsetup/buildworker-setup-0.5.3; ./configure --prefix=/usr --with-scripts-version=0.2.0 --with-keyfile-uri=s3://systems.madison.codesign-material && make && make install" ]
     - systemctl enable buildworker-setup.service
     - systemctl enable buildworker.service
     - systemctl start buildworker-setup
