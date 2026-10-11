@@ -25,7 +25,8 @@ def bitbake_branch_computed(props):
     result = props.getProperty('bitbake_branch')
     if not result:
         try:
-            result = OECORE_BITBAKE_BRANCH_MAPPING[props.getProperty('oe_core_branch')]
+            branch_map = props.getProperty('oe_core_bitbake_branch_map') or OECORE_BITBAKE_BRANCH_MAPPING
+            result = branch_map[props.getProperty('oe_core_branch')]
         except KeyError:
             result = 'UNKNOWN'
     return result

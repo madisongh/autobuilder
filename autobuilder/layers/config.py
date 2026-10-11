@@ -27,7 +27,8 @@ class Layer(object):
                  bitbake_url="https://github.com/openembedded/bitbake.git",
                  bitbake_branch=None,
                  oe_core_url="https://github.com/openembedded/openembedded-core.git",
-                 oe_core_branch=None):
+                 oe_core_branch=None,
+                 oe_core_bitbake_branch_map=None):
         self.name = name
         self.reponame = reponame
         self.bitbake_url = bitbake_url
@@ -45,6 +46,7 @@ class Layer(object):
         self.other_layers = other_layers
         self.bitbake_branch = bitbake_branch
         self.oe_core_branch = oe_core_branch
+        self.oe_core_bitbake_branch_map = oe_core_bitbake_branch_map
         if self.other_layers:
             for lname, layer in self.other_layers.items():
                 if 'subdir' not in layer:
@@ -89,6 +91,7 @@ class Layer(object):
                                               extraconf=self.extra_config or [],
                                               oe_core_branch=self.oe_core_branch or '',
                                               bitbake_branch=self.bitbake_branch or '',
+                                              oe_core_bitbake_branch_map=self.oe_core_bitbake_branch_map or {},
                                               clean_env_cmd=delete_env_vars()),
                               factory=CheckLayer(
                                   repourl=repo.uri,
