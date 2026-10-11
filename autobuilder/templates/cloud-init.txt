@@ -9,8 +9,8 @@ bootcmd:
 mounts:
     - [ "LABEL=SCRATCH", "/scratch", "auto", "defaults,noatime,nodiratime,nofail,nosuid,nodev,x-systemd.requires=cloud-init.service", "0", "2" ]
 
-package_update: true
-package_upgrade: true
+package_update: false
+package_upgrade: false
 
 packages:
     - build-essential

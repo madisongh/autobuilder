@@ -9,10 +9,12 @@ bootcmd:
 mounts:
     - [ "LABEL=SCRATCH", "/scratch", "auto", "defaults,noatime,nodiratime,nofail,nosuid,nodev,x-systemd.requires=cloud-init.service", "0", "2" ]
 
-package_update: true
-package_upgrade: true
+package_update: false
+package_upgrade: false
 
 packages:
+    - binfmt-support
+    - qemu-user-binfmt
     - build-essential
     - chrpath
     - device-tree-compiler
@@ -37,6 +39,7 @@ packages:
     - python3-jinja2
     - python3-subunit
     - python3-boto3
+    - systemd-dev
     - emacs
     - curl
     - zstd

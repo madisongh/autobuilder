@@ -1,0 +1,93 @@
+#cloud-config
+bootcmd:
+    - [ mkdir, -p, /run/disksetup ]
+    - [ sh, -c, "EPHEMERALS=$(lsblk -ndpoNAME,MODEL | grep 'Instance Storage' | awk -v ORS=' ' '{print $1}'); echo EPHEMERALS=\\\"$EPHEMERALS\\\" > /run/disksetup/disksetup.sh" ]
+    - [ sh, -c, "EPHEMERALCOUNT=$(lsblk -ndoNAME,MODEL | grep 'Instance Storage' | wc -l); echo EPHEMERALCOUNT=$EPHEMERALCOUNT >> /run/disksetup/disksetup.sh" ]
+    - [ sh, -c, ". /run/disksetup/disksetup.sh; if [ $EPHEMERALCOUNT -ne 0 ]; then wipefs $EPHEMERALS; partprobe; fi" ]
+    - [ sh, -c, ". /run/disksetup/disksetup.sh; if [ $EPHEMERALCOUNT -eq 1 ]; then mkfs.ext4 -q -F -L SCRATCH -E nodiscard,lazy_itable_init $EPHEMERALS; elif ! blkid /dev/md0 > /dev/null && [ $EPHEMERALCOUNT -ne 0 ]; then mdadm --create --force --verbose /dev/md0 --level=0 --raid-devices=$EPHEMERALCOUNT $EPHEMERALS && echo \\\"DEVICE $EPHEMERALS\\\" > /etc/mdadm/mdadm.conf; partprobe; mkfs.ext4 -q -F -L SCRATCH -E nodiscard,lazy_itable_init /dev/md0; fi" ]
+
+mounts:
+    - [ "LABEL=SCRATCH", "/scratch", "auto", "defaults,noatime,nodiratime,nofail,nosuid,nodev,x-systemd.requires=cloud-init-main.service", "0", "2" ]
+
+package_update: false
+package_upgrade: false
+
+packages:
+    - binfmt-support
+    - qemu-user-binfmt
+    - build-essential
+    - chrpath
+    - device-tree-compiler
+    - socat
+    - cpio
+    - gawk
+    - wget
+    - git
+    - git-lfs
+    - diffstat
+    - unzip
+    - texinfo
+    - gcc
+    - pipx
+    - pkgconf
+    - python3
+    - python3-pexpect
+    - xz-utils
+    - debianutils
+    - iputils-ping
+    - python3-git
+    - python3-jinja2
+    - python3-subunit
+    - python3-boto3
+    - systemd-dev
+    - emacs
+    - curl
+    - zstd
+    - lz4
+    - file
+    - libacl1
+    {% for pkg in extra_packages %}
+    - {{ pkg }}
+    {% endfor %}
+
+users:
+    - default
+    - name: builder
+      gecos: Auto Builder
+      lock_passwd: true
+      uid: 2000
+      shell: /bin/bash
+
+write_files:
+    - content: |
+        WORKERNAME="{{ workername }}"
+        WORKERSECRET="{{ workersecret }}"
+        MASTER="{{ master_ip }}"
+      path: /run/buildworker/settings
+      permissions: '0644'
+    - content: |
+        kernel.apparmor_restrict_unprivileged_userns = 0
+      path: /etc/sysctl.d/90-userns-config-for-bitbake.conf
+      permissions: '0644'
+    - content: |
+        {{ master_ip }} {{ master_hostname }} {{ master_fqdn }}
+      path: /etc/hosts
+      append: true
+    - content: |
+        mkdir -p $HOME/.local/bin
+      path: 90-make-local-bin.sh
+      permissions: '0644'
+
+runcmd:
+    - sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+    - snap install --classic aws-cli
+    - mkdir /var/lib/bwsetup
+    - [ sh, -c, "curl -L https://github.com/madisongh/buildworker-setup/releases/download/v0.5.3/buildworker-setup-0.5.3.tar.gz | tar -C /var/lib/bwsetup -x -z -f-" ]
+    - [ sh, -c, "cd /var/lib/bwsetup/buildworker-setup-0.5.3; ./configure --prefix=/usr --with-scripts-version=0.2.0 --with-keyfile-uri=s3://systems.madison.codesign-material && make && make install" ]
+    - systemctl enable buildworker-setup.service
+    - systemctl enable buildworker.service
+    - systemctl start buildworker-setup
+    {% for cmd in extra_cmds %}
+    - {{ cmd }}
+    {% endfor %}
+    - systemctl start buildworker

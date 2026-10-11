@@ -2,6 +2,9 @@
 bootcmd:
     - [ mkdir, -p, /scratch ]
 
+package_update: false
+package_upgrade: false
+
 packages:
     - build-essential
     - chrpath
@@ -47,7 +50,7 @@ runcmd:
     - sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
     - mkdir /var/lib/bwsetup
     - [ sh, -c, "curl -L https://github.com/madisongh/buildworker-setup/releases/download/v0.5.3/buildworker-setup-0.5.3.tar.gz | tar -C /var/lib/bwsetup -x -z -f-" ]
-    - [ sh, -c, "cd /var/lib/bwsetup/buildworker-setup-0.5.3; ./configure --prefix=/usr --disable-digsigserver && make && make install" ]
+    - [ sh, -c, "cd /var/lib/bwsetup/buildworker-setup-0.5.3; ./configure --prefix=/usr --with-scripts-version=0.2.0 --disable-digsigserver && make && make install" ]
     - systemctl enable buildworker-setup.service
     - systemctl enable buildworker.service
     - systemctl start buildworker-setup
