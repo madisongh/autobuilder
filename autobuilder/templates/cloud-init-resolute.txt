@@ -13,8 +13,9 @@ package_update: false
 package_upgrade: false
 
 packages:
-    - binfmt-support
     - qemu-user-binfmt
+    - qemu-user
+    - systemd-binfmt
     - build-essential
     - chrpath
     - device-tree-compiler

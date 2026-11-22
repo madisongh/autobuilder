@@ -14,7 +14,7 @@ package_upgrade: false
 
 packages:
     - binfmt-support
-    - qemu-user-binfmt
+    - qemu-user-static
     - build-essential
     - chrpath
     - device-tree-compiler
